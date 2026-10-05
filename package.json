@@ -1,0 +1,138 @@
+{
+  "name": "beamer-preview",
+  "displayName": "Beamer Live Preview",
+  "description": "Marp-like live preview of LaTeX beamer (metropolis) slides without compiling: HTML/CSS rendering with KaTeX math, images, overlays and cursor sync.",
+  "version": "0.1.0",
+  "publisher": "janplatos",
+  "author": {
+    "name": "Jan Platoš",
+    "email": "jan.platos@gmail.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OWNER/beamer-preview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OWNER/beamer-preview/issues"
+  },
+  "homepage": "https://github.com/OWNER/beamer-preview#readme",
+  "keywords": [
+    "latex",
+    "beamer",
+    "metropolis",
+    "slides",
+    "preview",
+    "presentation",
+    "tikz",
+    "katex"
+  ],
+  "icon": "media/logo.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages",
+    "Other"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onLanguage:latex",
+    "onLanguage:tex"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "beamerPreview.open",
+        "title": "Open Beamer Preview to the Side",
+        "category": "Beamer",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "beamerPreview.clearSnippetCache",
+        "title": "Clear LaTeX Snippet Cache",
+        "category": "Beamer"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "beamerPreview.open",
+          "when": "resourceExtname == .tex",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "beamerPreview.open",
+        "key": "ctrl+k b",
+        "mac": "cmd+k b",
+        "when": "resourceExtname == .tex"
+      }
+    ],
+    "configuration": {
+      "title": "Beamer Preview",
+      "properties": {
+        "beamerPreview.scope": {
+          "type": "string",
+          "enum": [
+            "file",
+            "document"
+          ],
+          "default": "file",
+          "markdownDescription": "`file`: when the active file is an included lecture (e.g. via `\\subimport`), show only its frames with the root's title page — like a per-lecture PDF. `document`: always show the whole root document."
+        },
+        "beamerPreview.followActiveEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Switch the preview when another .tex editor becomes active."
+        },
+        "beamerPreview.syncCursor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scroll the preview to the frame (and overlay step) under the cursor."
+        },
+        "beamerPreview.debounceMs": {
+          "type": "number",
+          "default": 250,
+          "description": "Delay after typing before the preview re-renders."
+        },
+        "beamerPreview.snippets.engine": {
+          "type": "string",
+          "enum": [
+            "docker",
+            "local",
+            "off"
+          ],
+          "default": "docker",
+          "markdownDescription": "How to render environments HTML cannot approximate (`tikzpicture`, `algorithm`): compile them once with real LaTeX in the background and cache the result (`docker` or a `local` pdflatex), or `off` to show placeholders/approximations only."
+        },
+        "beamerPreview.snippets.dockerImage": {
+          "type": "string",
+          "default": "texlive/texlive:latest",
+          "description": "Docker image used for snippet rendering."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "export": "node cli.js",
+    "test": "node test/smoke.js",
+    "test:vscode": "node test/runTest.js",
+    "screenshots": "node test/shoot.js",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@fontsource/fira-mono": "^5.3.0",
+    "@fontsource/fira-sans": "^5.3.0",
+    "katex": "^0.19.0",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^4.0.0",
+    "puppeteer-core": "^25.12.0"
+  }
+}

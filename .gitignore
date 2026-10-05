@@ -1,0 +1,15 @@
+node_modules/
+*.vsix
+.vscode-test/
+.cache/
+*.preview.html
+shots/
+# LaTeX build artefacts (examples/demo/main.pdf is committed on purpose)
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.synctex.gz

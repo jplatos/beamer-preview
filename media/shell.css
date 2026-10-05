@@ -1,0 +1,45 @@
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--vscode-editor-background, #2b2b2b);
+  color: var(--vscode-foreground, #ddd);
+  font: 12px system-ui, sans-serif;
+}
+#toolbar {
+  position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; align-items: center;
+  padding: 5px 10px; background: var(--vscode-sideBar-background, #222); border-bottom: 1px solid var(--vscode-panel-border, #444);
+}
+#toolbar select, #toolbar button {
+  background: var(--vscode-dropdown-background, #333); color: inherit; border: 1px solid var(--vscode-dropdown-border, #555);
+  border-radius: 3px; padding: 2px 6px; font: inherit; cursor: pointer;
+}
+#toolbar .sp { flex: 1; }
+#toolbar #diag { opacity: .7; cursor: help; }
+#deck {
+  display: grid; grid-template-columns: repeat(var(--cols, 1), 1fr); gap: 12px; padding: 12px;
+}
+.card { position: relative; }
+.card .scaler {
+  zoom: var(--zoom, 1); width: fit-content; box-shadow: 0 1px 6px rgba(0, 0, 0, .45); cursor: pointer;
+}
+.card.cur .scaler { outline: 3px solid var(--vscode-focusBorder, #3794ff); outline-offset: 0; }
+.card.sel .scaler { outline: 3px solid var(--vscode-textLink-foreground, #e0a030); }
+.card .steps {
+  position: absolute; right: 6px; bottom: 6px; display: flex; gap: 3px; opacity: .25; transition: opacity .15s;
+}
+.card:hover .steps, .card.cur .steps { opacity: 1; }
+.stepdot {
+  min-width: 16px; height: 16px; line-height: 16px; text-align: center; border-radius: 8px; font-size: 10px;
+  background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; padding: 0 2px;
+}
+.stepdot.on { background: #EB811B; }
+
+/* presentation mode */
+body.present { background: #000; overflow: hidden; }
+body.present #toolbar { display: none; }
+body.present #deck { display: block; padding: 0; }
+body.present .card { display: none; }
+body.present .card.presenting {
+  display: flex; position: fixed; inset: 0; align-items: center; justify-content: center; background: #000;
+}
+body.present .card.presenting .scaler { zoom: var(--pzoom, 1); box-shadow: none; outline: none; }
+body.present .card.presenting .steps { display: none; }

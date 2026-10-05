@@ -1,0 +1,45 @@
+%!TEX program = xelatex
+\documentclass[11pt,aspectratio=169,dvipsnames,svgnames]{beamer}
+
+\usetheme{metropolis}
+\usepackage{booktabs}
+\usepackage{import}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[ruled,linesnumbered]{algorithm2e}
+\usepackage{multicol}
+\usepackage{colortbl}
+
+\title{Beamer Live Preview}
+\subtitle{A demo deck}
+\date{\today}
+\author{Demo Author}
+\institute{Department of Examples\\University of Somewhere}
+
+\definecolor{brand}{RGB}{0,111,186}
+\setbeamercolor{frametitle}{fg=white, bg=brand}
+\setbeamercolor{palette primary}{bg=brand}
+\setbeamercolor{example text}{fg=brand}
+\metroset{progressbar=frametitle, block=fill}
+\setbeamertemplate{frame footer}{}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+
+\begin{document}
+
+\maketitle
+
+\section{Basics}
+\subimport{sections/}{basics.tex}
+
+\section{Advanced}
+\subimport{sections/}{advanced.tex}
+
+\metroset{numbering=none}
+\begin{frame}[standout]
+  Questions?
+\end{frame}
+
+\end{document}

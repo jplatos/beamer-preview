@@ -1,0 +1,64 @@
+\begin{frame}{Tables}
+  \begin{table}
+    \begin{tabular}{lrr}
+      \toprule
+      \textbf{Model} & \textbf{Accuracy} & \textbf{F1} \\
+      \midrule
+      Logistic regression & 0.91 & 0.88 \\
+      Random forest & 0.94 & 0.92 \\
+      \rowcolor{brand!15} Gradient boosting & 0.95 & 0.93 \\
+      \bottomrule
+    \end{tabular}
+    \caption{Booktabs rules and a coloured row.}
+  \end{table}
+  \begin{center}
+    \begin{tabular}{|c|c|c|}
+      \hline
+      & \textbf{Predicted +} & \textbf{Predicted --} \\
+      \hline
+      \textbf{Actual +} & TP & FN \\
+      \hline
+      \textbf{Actual --} & FP & TN \\
+      \hline
+    \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}{TikZ}
+  \begin{center}
+    \begin{tikzpicture}[node distance=18mm, every node/.style={draw, rounded corners, minimum width=20mm, minimum height=8mm}]
+      \node (a) {Source};
+      \node[right=of a] (b) {Parser};
+      \node[right=of b] (c) {HTML};
+      \draw[-{Stealth}] (a) -- (b);
+      \draw[-{Stealth}] (b) -- (c);
+    \end{tikzpicture}
+  \end{center}
+  \begin{itemize}
+    \item \texttt{tikzpicture} is compiled once in the background and cached.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Algorithms}
+  \begin{algorithm}[H]
+    \caption{K-Means(Dataset: $D$, Clusters: $k$)}
+    \Begin{
+      Choose $k$ initial centroids\;
+      \Repeat{centroids do not change}{
+        Assign each point to its closest centroid\;
+        Recompute each centroid as the mean of its points\;
+      }
+      \Return{clusters}\;
+    }
+  \end{algorithm}
+\end{frame}
+
+\begin{frame}[fragile]{Code}
+  \begin{block}{Verbatim}
+\begin{verbatim}
+from sklearn.cluster import KMeans
+model = KMeans(n_clusters=3).fit(X)
+print(model.cluster_centers_)
+\end{verbatim}
+  \end{block}
+\end{frame}
