@@ -65,7 +65,7 @@ compiled once with real LaTeX in the background and cached.
 
 ### From a release
 
-Download `beamer-preview-<version>.vsix` from the [Releases](https://github.com/OWNER/beamer-preview/releases) page, then:
+Download `beamer-preview-<version>.vsix` from the [Releases](https://github.com/jplatos/beamer-preview/releases) page, then:
 
 ```sh
 code --install-extension beamer-preview-<version>.vsix
@@ -74,7 +74,7 @@ code --install-extension beamer-preview-<version>.vsix
 ### From source
 
 ```sh
-git clone https://github.com/OWNER/beamer-preview.git
+git clone https://github.com/jplatos/beamer-preview.git
 cd beamer-preview
 npm install
 npm run package          # creates beamer-preview-<version>.vsix

@@ -3,7 +3,7 @@
   "displayName": "Beamer Live Preview",
   "description": "Marp-like live preview of LaTeX beamer (metropolis) slides without compiling: HTML/CSS rendering with KaTeX math, images, overlays and cursor sync.",
   "version": "0.1.0",
-  "publisher": "janplatos",
+  "publisher": "jplatos",
   "author": {
     "name": "Jan Platoš",
     "email": "jan.platos@gmail.com"
@@ -11,12 +11,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OWNER/beamer-preview.git"
+    "url": "https://github.com/jplatos/beamer-preview.git"
   },
   "bugs": {
-    "url": "https://github.com/OWNER/beamer-preview/issues"
+    "url": "https://github.com/jplatos/beamer-preview/issues"
   },
-  "homepage": "https://github.com/OWNER/beamer-preview#readme",
+  "homepage": "https://github.com/jplatos/beamer-preview#readme",
   "keywords": [
     "latex",
     "beamer",
