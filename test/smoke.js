@@ -77,5 +77,79 @@ test('lecture mode shows only the included file plus title/section/closing frame
   assert.ok(!lec.frames.some((f) => f.title === 'Tables'));
 });
 
+// ---- in-memory documents for specific constructs ----
+const { overlayVariant, overlaySteps, resolveIncremental } = require('../src/overlays');
+const memDoc = (body, extra = {}) => {
+  const files = Object.assign({
+    'C:/mem/main.tex': String.raw`\documentclass{beamer}\usetheme{metropolis}
+\definecolor{fei}{RGB}{0,111,186}
+\begin{document}
+` + body + String.raw`
+\end{document}`,
+  }, extra);
+  const norm = (f) => path.resolve(f).toLowerCase();
+  const map = new Map(Object.entries(files).map(([k, v]) => [norm(k), v]));
+  const snippets = [];
+  const r = new Renderer({
+    readFile: (f) => map.get(norm(f)) ?? null,
+    resolveImage: (p) => (map.has(norm(p)) ? { uri: p, kind: path.extname(p) === '.pdf' ? 'pdf' : 'img' } : null),
+    snippet: (src) => { snippets.push(src); return { key: 'k' + snippets.length, uri: null }; },
+  });
+  const d = r.renderDocument('C:/mem/main.tex');
+  return { html: d.frames.map((f) => f.html).join('\n'), frames: d.frames, snippets, diagnostics: d.diagnostics };
+};
+
+test('enumerate mini-template [ {[}1{]} ] gives [1], [2]', () => {
+  const d = memDoc(String.raw`\begin{frame}{F}\begin{enumerate}[ {[}1{]} ]\item a\item b\end{enumerate}\end{frame}`);
+  assert.ok(d.html.includes('<span class="lbl">[1]</span>') && d.html.includes('<span class="lbl">[2]</span>'));
+});
+test('image names with extra dots (x.drawio + .pdf)', () => {
+  const d = memDoc(String.raw`\begin{frame}{F}\includegraphics{img/a.drawio}\end{frame}`, { 'C:/mem/img/a.drawio.pdf': '%PDF' });
+  assert.ok(/canvas class="pdfimg"[^>]*a\.drawio\.pdf/.test(d.html), d.diagnostics.map((x) => x.msg).join());
+});
+test('lstlisting options: size and keyword highlighting, no option text', () => {
+  const d = memDoc(String.raw`\begin{frame}[fragile]{F}
+\begin{lstlisting}[language=Python, basicstyle=\ttfamily\scriptsize, keywordstyle=\color{fei}\bfseries]
+import torch  # comment
+def f(x): return "s"
+\end{lstlisting}
+\end{frame}`);
+  assert.ok(!d.html.includes('language=Python'));
+  assert.ok(/<pre class="verb" style="font-size:8pt/.test(d.html));
+  assert.ok(d.html.includes('<span class="c-kw" style="color:#006fba;">import</span>'));
+  assert.ok(d.html.includes('<span class="c-com"># comment</span>') && d.html.includes('<span class="c-str">&quot;s&quot;</span>'));
+});
+test('\\lstinputlisting reads the file', () => {
+  const d = memDoc(String.raw`\begin{frame}{F}\lstinputlisting[language=Python]{code/a.py}\end{frame}`, { 'C:/mem/code/a.py': 'def g():\n    pass\n' });
+  assert.ok(d.html.includes('<span class="c-kw">def</span> g()'));
+});
+test('\\todo renders as a visible note', () => {
+  assert.ok(memDoc(String.raw`\begin{frame}{F}text \todo{fix me}\end{frame}`).html.includes('<span class="todo">fix me</span>'));
+});
+test('\\tabcolsep applies to cells', () => {
+  const d = memDoc(String.raw`\begin{frame}{F}\setlength\tabcolsep{1pt}\begin{tabular}{c}a\end{tabular}\end{frame}`);
+  assert.ok(/padding-left:1pt;padding-right:1pt/.test(d.html));
+});
+test('overlay variants for snippets (\\visible, \\only, \\alt, \\pause)', () => {
+  const s = String.raw`A \visible<2>{B} \only<3>{D} \alt<2>{E}{F} \pause G`;
+  assert.strictEqual(overlaySteps(s), 3);
+  assert.strictEqual(overlayVariant(s, 1, false).replace(/\s+/g, ' ').trim(), 'A F G');
+  assert.strictEqual(overlayVariant(s, 2, false).replace(/\s+/g, ' ').trim(), 'A B E G');
+  assert.ok(overlayVariant(String.raw`\visible<2>{\node{x};}`, 1, true).includes('opacity=0'));
+});
+test('incremental specs <+->, <+>, <.> resolve in order', () => {
+  const r = resolveIncremental(String.raw`\uncover<+->{a}\uncover<+>{b}\uncover<.>{c}\uncover<+->{d}`, 1);
+  assert.strictEqual(r.src, String.raw`\uncover<1->{a}\uncover<2>{b}\uncover<2>{c}\uncover<3->{d}`);
+  assert.strictEqual(r.next, 4);
+});
+test('tikz with overlays compiles one snippet per step, without overlay commands', () => {
+  const d = memDoc(String.raw`\begin{frame}{F}\begin{tikzpicture}\node{a};\visible<2>{\node{b};}\only<3>{\node{c};}\end{tikzpicture}\end{frame}`);
+  assert.strictEqual(d.snippets.length, 3);
+  assert.ok(d.snippets.every((s) => !/\\(visible|only)\s*</.test(s)));
+  const f = d.frames.find((x) => x.kind === 'frame');
+  assert.strictEqual(f.steps, 3);
+  assert.ok(f.html.includes('data-only="1"') && f.html.includes('data-only="3-"'));
+});
+
 console.log(failed ? `\n${failed} failed` : '\nall passed');
 process.exit(failed ? 1 : 0);

@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const katex = require('katex');
 const { tokenize, lineIndex, offsetToLine } = require('./tokenizer');
 const { ColorTable, toCss, mix } = require('./colors');
+const { overlaySteps, overlayVariant, resolveIncremental } = require('./overlays');
 
 // ---------- geometry (16:9, 11pt, measured from beamer + metropolis) ----------
 const GEOM = {
@@ -218,7 +219,7 @@ const SWITCHES = {
 const IGNORE = {
   label: 1, ref: -1, cite: -1, index: 1, hypertarget: 1, hypersetup: 1, setcounter: 2, addtocounter: 2, stepcounter: 1,
   refstepcounter: 1, setbeamertemplate: -2, setbeamerfont: 2, usebeamercolor: 1, usebeamerfont: 1, usebeamertemplate: 1,
-  setbeamersize: 1, usetikzlibrary: 1, tikzset: 1, pgfplotsset: 1, presetkeys: 3, lstset: 1, graphicspath: 1,
+  setbeamersize: 1, usetikzlibrary: 1, tikzset: 1, pgfplotsset: 1, presetkeys: 3, graphicspath: 1,
   arrayrulecolor: 0, noindent: 0, indent: 0, protect: 0, relax: 0, centering: 0, nobreak: 0, sloppy: 0, fussy: 0,
   frenchspacing: 0, nointerlineskip: 0, strut: 0, null: 0, leavevmode: 0, ignorespaces: 0, unskip: 0, maketitle: 0,
   tableofcontents: 0, AtBeginSection: 1, AtBeginSubsection: 1, appendix: 0, setlength: 2, addtolength: 2,
@@ -227,7 +228,7 @@ const IGNORE = {
   pagebreak: 0, framebreak: 0, allowbreak: 0, hyphenation: 1, includeonlyframes: 1, beamertemplatenavigationsymbolsempty: 0,
   thispagestyle: 1, pagestyle: 1, footnotemark: 0, newline: 0, cline: 1, cmidrule: 1, toprule: 0, midrule: 0, bottomrule: 0,
   hline: 0, addlinespace: 0, specialrule: 3, rowcolors: 3, tabularnewline: 0, Hline: 0, hdashline: 0, vline: 0,
-  newcounter: 1, inputencoding: 1, selectlanguage: 1, foreignlanguage: 1, todo: 1, missingfigure: 1, resetcounteronoverlays: 1,
+  newcounter: 1, inputencoding: 1, selectlanguage: 1, foreignlanguage: 1, resetcounteronoverlays: 1,
 };
 
 // ---------- the renderer ----------
@@ -384,6 +385,7 @@ class Renderer {
           break;
         }
         case 'arrayrulecolor': { this.arrayRuleColor = texOf(readArg(s)).trim(); break; }
+        case 'lstset': { this.lstDefaults = Object.assign(this.lstDefaults || {}, parseKeyVals(texOf(readArg(s)))); break; }
         case 'graphicspath': { const a = texOf(readArg(s)); this.graphicsPath = (a.match(/\{([^}]*)\}/g) || []).map((x) => x.slice(1, -1)); break; }
         case 'input': case 'include': {
           const f = texOf(readArg(s)).trim();
@@ -788,7 +790,7 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
         case 'align': text += ' '; continue;
         case 'param': continue;
         case 'math': flush(); out += this.math(t, ctx); continue;
-        case 'verb': flush(); out += `<pre class="verb">${esc(t.src.replace(/^\n/, ''))}</pre>`; continue;
+        case 'verb': flush(); out += this.verbatim(t, ctx); continue;
         case 'verbinline': flush(); out += `<code class="tt">${esc(t.src)}</code>`; continue;
         case 'raw': flush(); out += this.rawEnv(t, ctx); continue;
         case 'begin': {
@@ -1160,6 +1162,25 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
         return `<span class="rule" style="width:${w || 0};height:${h || 0}"></span>`;
       }
       case 'titlegraphic': readArg(s); return '';
+      case 'lstinputlisting': {
+        const o = readOpt(s);
+        const f = texOf(readArg(s)).trim();
+        const code = this.opts.readFile(path.resolve(ctx.dir, f)) ?? this.opts.readFile(path.resolve(this.rootDir, f));
+        if (code == null) { this.diag('Listing file not found: ' + f, t); return `<span class="img-missing">${esc(f)}</span>`; }
+        const opts = Object.assign({}, this.lstDefaults || {}, parseKeyVals(o ? texOf(o) : ''));
+        if (!opts.language && /\.py$/i.test(f)) opts.language = 'Python';
+        let lines = code.replace(/\s+$/, '').split(/\r?\n/);
+        if (opts.firstline || opts.lastline) lines = lines.slice((+opts.firstline || 1) - 1, +opts.lastline || undefined);
+        return this.codeBlock(lines.join('\n'), opts);
+      }
+      case 'lstset': { this.lstDefaults = Object.assign(this.lstDefaults || {}, parseKeyVals(texOf(readArg(s)))); return ''; }
+      case 'todo': {
+        const o = readOpt(s);
+        const kv = parseKeyVals(o ? texOf(o) : '');
+        const a = readArg(s);
+        return kv.disable ? '' : `<span class="todo">${this.convert(a, ctx)}</span>`;
+      }
+      case 'missingfigure': { readOpt(s); return `<span class="todo missingfigure">Missing figure: ${this.convert(readArg(s), ctx)}</span>`; }
       case 'tikzstyle': {
         // \tikzstyle{name}=[options]: keep for the LaTeX snippet preamble
         const nm = texOf(readArg(s)).trim();
@@ -1198,7 +1219,8 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
     rel = rel.replace(/^"|"$/g, '').trim();
     const dirs = [dir, ...(this.graphicsPath || []).map((g) => path.resolve(dir, g)), this.rootDir,
       ...(this.graphicsPath || []).map((g) => path.resolve(this.rootDir, g))];
-    const exts = path.extname(rel) ? [''] : ['.pdf', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.eps'];
+    const known = ['.pdf', '.png', '.jpg', '.jpeg', '.svg', '.gif', '.eps'];
+    const exts = known.includes(path.extname(rel).toLowerCase()) ? [''] : ['', ...known];
     for (const d of dirs) {
       for (const e of exts) {
         const r = this.opts.resolveImage(path.resolve(d, rel + e));
@@ -1273,13 +1295,79 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
   // ---------- raw environments (tikz, algorithms) ----------
   rawEnv(t, ctx) {
     const label = t.env;
+    const placeholder = (key) => `<div class="snippet${key ? ' pending' : ''}"${key ? ` data-key="${key}"` : ''}><span class="snip-label">${esc(label)}</span><pre>${esc(abbrev(t.src))}</pre></div>`;
     if (this.opts.snippet) {
-      const r = this.opts.snippet(t.src, { dir: ctx.dir, env: t.env, preamble: this });
-      if (r && r.uri) return `<canvas class="pdfimg snippet-img" data-src="${esc(r.uri)}" data-page="1" data-scale="1" data-key="${r.key}"></canvas>`;
-      if (r && r.key) return `<div class="snippet pending" data-key="${r.key}"><span class="snip-label">${esc(label)}</span><pre>${esc(abbrev(t.src))}</pre></div>`;
+      const one = (src) => {
+        const r = this.opts.snippet(src, { dir: ctx.dir, env: t.env, preamble: this });
+        if (r && r.uri) return `<canvas class="pdfimg snippet-img" data-src="${esc(r.uri)}" data-page="1" data-scale="1" data-key="${r.key}"></canvas>`;
+        if (r && r.key) return placeholder(r.key);
+        return null;
+      };
+      // beamer overlays inside the snippet: compile one variant per step and switch between them
+      const inc = resolveIncremental(t.src, ctx.plus);
+      ctx.plus = inc.next;
+      t = Object.assign({}, t, { src: inc.src });
+      const n = overlaySteps(t.src);
+      const tikz = t.env !== 'algorithm' && t.env !== 'algorithm2e';
+      if (n > 1) {
+        const parts = [];
+        for (let k = 1; k <= n; k++) {
+          const h = one(overlayVariant(t.src, k, tikz));
+          if (h == null) { parts.length = 0; break; }
+          parts.push(`<span class="ov"${this.overlayAttr('only', k === n ? `${k}-` : String(k), ctx)}>${h}</span>`);
+        }
+        if (parts.length) return parts.join('');
+      } else {
+        const h = one(n === 1 ? overlayVariant(t.src, 1, tikz) : t.src);
+        if (h != null) return h;
+      }
     }
     if (t.env === 'algorithm' || t.env === 'algorithm2e') return this.algorithm(t, ctx);
-    return `<div class="snippet"><span class="snip-label">${esc(label)}</span><pre>${esc(abbrev(t.src))}</pre></div>`;
+    return placeholder(null);
+  }
+
+  /** verbatim / lstlisting / minted, with listings options and light keyword highlighting */
+  verbatim(t, ctx) {
+    let src = t.src;
+    let opts = {};
+    if (t.env === 'lstlisting') {
+      const m = /^\s*\[([^\]]*)\]/.exec(src);
+      if (m) { opts = parseKeyVals(m[1]); src = src.slice(m[0].length); }
+      opts = Object.assign({}, this.lstDefaults || {}, opts);
+    } else if (t.env === 'minted') {
+      const m = /^\s*(?:\[([^\]]*)\])?\s*\{([^}]*)\}/.exec(src);
+      if (m) { opts = Object.assign(parseKeyVals(m[1] || ''), { language: m[2] }); src = src.slice(m[0].length); }
+    }
+    return this.codeBlock(src.replace(/^[ \t]*\r?\n/, '').replace(/\s+$/, ''), opts);
+  }
+
+  codeBlock(code, opts) {
+    const style = [];
+    const size = (/\\(tiny|scriptsize|footnotesize|small|normalsize|large|Large)\b/.exec(opts.basicstyle || '') || [])[1];
+    if (size) style.push(`font-size:${SIZES[size]}pt;line-height:${(SIZES[size] * 1.25).toFixed(2)}pt`);
+    const kwColor = /\\color\{([^}]*)\}/.exec(opts.keywordstyle || '');
+    const kwCss = kwColor ? this.colors.css(kwColor[1]) : null;
+    const kwBold = !opts.keywordstyle || /\\bfseries/.test(opts.keywordstyle);
+    const lang = String(opts.language || '').replace(/^\[[^\]]*\]/, '').trim().toLowerCase();
+    const kws = CODE_KEYWORDS[lang];
+    let html = esc(code);
+    if (kws) {
+      const comment = { python: '#', r: '#', bash: '#', sh: '#', matlab: '%', sql: '--' }[lang] || '//';
+      const re = new RegExp(`(${comment.replace(/\//g, '\\/')}[^\\n]*)|("(?:[^"\\\\\\n]|\\\\.)*"|'(?:[^'\\\\\\n]|\\\\.)*')|\\b([A-Za-z_][A-Za-z0-9_]*)\\b`, 'g');
+      const kwAttr = kwCss || !kwBold ? ` style="${kwCss ? `color:${kwCss};` : ''}${kwBold ? '' : 'font-weight:inherit'}"` : '';
+      html = '';
+      let last = 0;
+      for (const m of code.matchAll(re)) {
+        html += esc(code.slice(last, m.index));
+        if (m[1]) html += `<span class="c-com">${esc(m[1])}</span>`;
+        else if (m[2]) html += `<span class="c-str">${esc(m[2])}</span>`;
+        else if (kws.has(m[3])) html += `<span class="c-kw"${kwAttr}>${esc(m[3])}</span>`;
+        else html += esc(m[3]);
+        last = m.index + m[0].length;
+      }
+      html += esc(code.slice(last));
+    }
+    return `<pre class="verb"${style.length ? ` style="${style.join(';')}"` : ''}>${html}</pre>`;
   }
 
   /** algorithm2e approximation */
@@ -1483,7 +1571,7 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
       const str = texOf(o).trim();
       const m = /^<([^>]*)>$/.exec(str);
       if (m) defaultSpec = m[1];
-      else if (kind === 'enumerate') labelTpl = str.replace(/^label=/, '');
+      else if (kind === 'enumerate') labelTpl = str.replace(/^label=/, '').replace(/[{}]/g, '').trim();
     }
     const body = readEnvBody(s, kind);
     // split at top-level \item
@@ -1747,6 +1835,7 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
         if (rb) st.push(`border-right:${rb > 1 ? '1.6pt double' : '0.4pt solid'} ${rule}`);
         if (top) st.push(top);
         if (cellBg || rowBg) st.push(`background:${cellBg || rowBg}`);
+        if (ctx.tabcolsep) st.push(`padding-left:${ctx.tabcolsep};padding-right:${ctx.tabcolsep}`);
         if (ctx.arraystretch !== 1) st.push(`padding-top:${(ctx.arraystretch - 1) * 0.5 + 0.1}em;padding-bottom:${(ctx.arraystretch - 1) * 0.5 + 0.1}em`);
         const prevAlign = ctx.inCell;
         ctx.inCell = true;
@@ -1766,6 +1855,20 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
     return `<table class="tabular${inline}">${trs}</table>`;
   }
 }
+
+const kw = (str) => new Set(str.split(/\s+/));
+const CODE_KEYWORDS = {
+  python: kw('False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield'),
+  c: kw('auto break case char const continue default do double else enum extern float for goto if int long register return short signed sizeof static struct switch typedef union unsigned void volatile while'),
+  'c++': kw('auto bool break case catch char class const constexpr continue default delete do double else enum explicit false float for friend if inline int long namespace new nullptr operator private protected public return short signed sizeof static struct switch template this throw true try typedef typename using virtual void while'),
+  java: kw('abstract boolean break byte case catch char class continue default do double else enum extends final finally float for if implements import instanceof int interface long new null package private protected public return short static super switch this throw throws true false try void while'),
+  javascript: kw('async await break case catch class const continue default delete do else export extends false finally for function if import in instanceof let new null return super switch this throw true try typeof undefined var void while yield'),
+  r: kw('if else repeat while function for in next break TRUE FALSE NULL Inf NaN NA library return'),
+  sql: kw('SELECT FROM WHERE GROUP BY ORDER HAVING JOIN LEFT RIGHT INNER OUTER ON AS AND OR NOT INSERT INTO VALUES UPDATE SET DELETE CREATE TABLE DISTINCT LIMIT select from where group by order having join on as and or not insert into values update set delete create table distinct limit'),
+  bash: kw('if then else elif fi for while do done case esac function in echo export return local'),
+  matlab: kw('break case catch continue else elseif end for function global if otherwise persistent return switch try while'),
+};
+Object.assign(CODE_KEYWORDS, { sh: CODE_KEYWORDS.bash, cpp: CODE_KEYWORDS['c++'], js: CODE_KEYWORDS.javascript, py: CODE_KEYWORDS.python, python3: CODE_KEYWORDS.python });
 
 const NATIVE_OVERRIDES = new Set(['blfootnote', 'alert', 'only', 'uncover', 'pause', 'footnote', 'includegraphics']);
 

@@ -221,3 +221,14 @@
 .slide li.ov-hide { display: none; }
 
 .slide.err .errbox { padding: 20pt; color: var(--alert); font-family: var(--mono); font-size: 8pt; }
+
+/* ---------- code & notes ---------- */
+.slide pre.verb .c-kw { font-weight: 500; color: var(--structure); }
+.slide pre.verb .c-com { color: color-mix(in srgb, var(--fg) 55%, transparent); font-style: italic; }
+.slide pre.verb .c-str { color: #a0522d; }
+.slide .todo {
+  display: inline-block; background: #fde3c6; border: 0.5pt solid #e09a4c; border-radius: 2pt;
+  color: #5a3b14; font-size: 0.8em; line-height: 1.25; padding: 1pt 3pt; margin: 1pt 0;
+}
+.slide .todo.missingfigure { display: block; padding: 10pt; text-align: center; }
+.slide .snippet.failed .snip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; right: 4pt; }

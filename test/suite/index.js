@@ -31,4 +31,10 @@ exports.run = async () => {
   console.log('STATS2', JSON.stringify(s2));
   assert.strictEqual(+s2.cur, s2.cards - 2, 'cursor frame highlighted (last lecture frame before closing slide)');
   await vscode.commands.executeCommand('workbench.action.files.revert');
+
+  // snippet engine diagnostics command must run end-to-end (skipped on CI where docker is not used)
+  if (!process.env.BEAMER_PREVIEW_NO_SNIPPETS) {
+    await vscode.commands.executeCommand('beamerPreview.checkSnippetEngine');
+    console.log('ENGINE CHECK DONE');
+  }
 };

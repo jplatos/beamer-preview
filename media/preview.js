@@ -424,6 +424,8 @@
           ph.classList.remove('pending');
           ph.classList.add('failed');
           ph.title = m.error || 'LaTeX snippet failed';
+          const lbl = ph.querySelector('.snip-label');
+          if (lbl && !lbl.dataset.err) { lbl.dataset.err = '1'; lbl.textContent += ` — not compiled: ${m.error || 'LaTeX error'}`; }
         }
       });
     }

@@ -32,16 +32,57 @@ class Preview {
   ensureSnippets() {
     const engine = this.config().get('snippets.engine', 'docker');
     const image = this.config().get('snippets.dockerImage', 'texlive/texlive:latest');
-    if (!this.snippets || this.snippets.o.engine !== engine || this.snippets.o.image !== image) {
+    const latex = this.config().get('snippets.latexCommand', 'pdflatex');
+    const o = this.snippets && this.snippets.o;
+    if (!o || o.engine !== engine || o.image !== image || o.latex !== latex) {
       this.snippets = new SnippetCache({
         cacheDir: path.join(this.context.globalStorageUri.fsPath, 'snippets'),
-        engine, image,
+        engine, image, latex,
+        log: (msg) => this.out().appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`),
+        onStatus: (state, msg) => this.snippetStatus(state, msg),
         onReady: (key, uri, err) => {
           if (this.panel) this.panel.webview.postMessage({ type: 'snippet', key, uri: uri && this.webUri(uri), error: err });
         },
       });
     }
     return this.snippets;
+  }
+
+  snippetStatus(state, msg) {
+    if (!this.statusItem) {
+      this.statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
+      this.statusItem.command = 'beamerPreview.checkSnippetEngine';
+    }
+    const it = this.statusItem;
+    if (state === 'idle') { it.hide(); return; }
+    it.text = state === 'pulling' ? '$(cloud-download) Beamer: pulling TeX image…'
+      : state === 'compiling' ? `$(sync~spin) Beamer: compiling ${msg || 'snippets'}`
+        : '$(warning) Beamer: snippets unavailable';
+    it.tooltip = (msg || '') + '\nClick to check the LaTeX snippet engine.';
+    it.show();
+    if (state === 'down' && !this.warnedDown) {
+      this.warnedDown = true;
+      vscode.window.showWarningMessage(`Beamer preview: TikZ/algorithm snippets cannot be compiled — ${msg}`, 'Show log', 'Settings')
+        .then((a) => {
+          if (a === 'Show log') this.out().show(true);
+          if (a === 'Settings') vscode.commands.executeCommand('workbench.action.openSettings', 'beamerPreview.snippets');
+        });
+    }
+  }
+
+  async checkEngine() {
+    const out = this.out();
+    out.show(true);
+    const engine = this.config().get('snippets.engine', 'docker');
+    if (engine === 'off') { out.appendLine('Snippet engine is off (beamerPreview.snippets.engine).'); return; }
+    out.appendLine(`--- checking snippet engine "${engine}" (platform ${process.platform}, cache ${path.join(this.context.globalStorageUri.fsPath, 'snippets')})`);
+    const res = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: `Beamer: testing the "${engine}" LaTeX engine…` },
+      () => this.ensureSnippets().selfTest(),
+    );
+    out.appendLine(`--- result: ${res.ok ? 'OK' : 'FAILED'} — ${res.msg}`);
+    if (res.ok) { this.warnedDown = false; vscode.window.showInformationMessage(`Beamer: ${res.msg}.`); this.schedule(0); }
+    else vscode.window.showErrorMessage(`Beamer: snippet engine failed — ${res.msg}`, 'Show log').then((a) => a && out.show(true));
   }
 
   webUri(fsPath) { return this.panel.webview.asWebviewUri(vscode.Uri.file(fsPath)).toString(); }
@@ -183,6 +224,7 @@ function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('beamerPreview.open', () => preview.open(vscode.window.activeTextEditor)),
     vscode.commands.registerCommand('beamerPreview._stats', () => preview.lastStats || null),
+    vscode.commands.registerCommand('beamerPreview.checkSnippetEngine', () => preview.checkEngine()),
     vscode.commands.registerCommand('beamerPreview.clearSnippetCache', async () => {
       const dir = vscode.Uri.joinPath(context.globalStorageUri, 'snippets');
       try { await vscode.workspace.fs.delete(dir, { recursive: true }); } catch (e) { /* none */ }

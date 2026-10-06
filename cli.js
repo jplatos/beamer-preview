@@ -21,7 +21,7 @@ const root = findRoot(abs, readFile) || abs;
 
 let snippets = null;
 if (args.includes('--snippets')) {
-  snippets = new SnippetCache({ cacheDir: path.join(__dirname, '.cache'), engine: 'docker' });
+  snippets = new SnippetCache({ cacheDir: path.join(__dirname, '.cache'), engine: 'docker', log: (m) => console.log('  ' + m) });
 }
 const renderOnce = () => {
   const r = new Renderer({

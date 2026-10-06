@@ -117,8 +117,32 @@ node cli.js path/to/main.tex  -o preview.html --snippets  # also compile TikZ & 
 | `beamerPreview.debounceMs` | `250` | Delay after typing before re-rendering |
 | `beamerPreview.snippets.engine` | `docker` | `docker`, `local` (`pdflatex` on PATH) or `off` |
 | `beamerPreview.snippets.dockerImage` | `texlive/texlive:latest` | Image used by the `docker` engine |
+| `beamerPreview.snippets.latexCommand` | `pdflatex` | LaTeX binary for the `local` engine (full path if not on PATH) |
 
-The **Beamer: Clear LaTeX Snippet Cache** command deletes the compiled snippet cache.
+Commands:
+
+- **Beamer: Check LaTeX Snippet Engine** compiles a test picture and reports exactly what is wrong.
+- **Beamer: Clear LaTeX Snippet Cache** deletes compiled snippets and cached failures.
+
+## Troubleshooting TikZ / algorithm snippets
+
+The engine logs everything to the **Beamer Preview** output channel (*View → Output*). Failures appear in three places:
+
+- a status-bar item, which you can click to run the check;
+- a one-time warning;
+- on the placeholder itself ("not compiled: …").
+
+| Message | Fix |
+|---|---|
+| *Docker not found on PATH* | Install Docker, or set `snippets.engine` to `local` (needs TeX Live/MiKTeX) or `off`. On macOS, start VS Code from a terminal if Docker is installed but not found. |
+| *Docker is installed but not running* | Start Docker Desktop or the docker service. The engine retries automatically every 30 s. |
+| *pulling texlive/texlive…* | The first use downloads the TeX Live image (several GB) once. Wait for the status bar, or run `docker pull texlive/texlive:latest` yourself. |
+| *Docker cannot mount the folder* | Docker Desktop → Settings → Resources → File sharing: add the drive or folder that holds your slides (often needed for network drives or OneDrive). |
+| *"pdflatex" not found on PATH* | `local` engine: install TeX Live or MiKTeX, or set `snippets.latexCommand` to the full path. |
+| A LaTeX error, e.g. *Undefined control sequence* | Shown with the offending line. The failing `.tex` and `.log` are kept next to the cache (`*.failed.tex`, `*.failed.log`); the log's first lines show the cache path. Fix the source or run **Clear LaTeX Snippet Cache** after changing your TeX setup. |
+
+Snippets are compiled with your preamble's packages, colours and macros. They also get metropolis' pgfplots theme (`mlineplot`, …).
+Beamer overlays inside a picture (`\visible<2>{…}`, `\only`, `\uncover<+->`, `\alt`) are compiled as one picture per step, and the preview switches between them.
 
 ## Requirements
 
