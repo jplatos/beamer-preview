@@ -53,6 +53,39 @@
   \end{algorithm}
 \end{frame}
 
+\begin{frame}{TikZ with overlays}
+  \begin{center}
+    \begin{tikzpicture}[node distance=6mm, every node/.style={draw, fill=brand!15, minimum height=7mm}]
+      \node (a) {the};
+      \node[right=of a] (b) {cat};
+      \node[right=of b] (c) {sat};
+      \visible<2>{\draw[-{Stealth}, thick, mLightBrown] (b.north) to[bend left] node[above, draw=none, fill=none] {context} (a.north);}
+      \visible<3>{\draw[-{Stealth}, thick, mLightBrown] (b.north) to[bend right] node[above, draw=none, fill=none] {context} (c.north);}
+    \end{tikzpicture}
+  \end{center}
+  \begin{itemize}
+    \item \texttt{\textbackslash visible<n>} inside a picture: one compiled variant per overlay step.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Listings}
+\begin{lstlisting}[language=Python, basicstyle=\ttfamily\small, keywordstyle=\color{brand}\bfseries]
+import numpy as np  # keywords, comments and strings are highlighted
+
+def softmax(z):
+    e = np.exp(z - z.max())
+    return e / e.sum()   # "numerically stable"
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Further reading}
+  \begin{enumerate}[ {[}1{]} ]
+    \item \href{https://ctan.org/pkg/beamer}{The beamer class}
+    \item \href{https://github.com/matze/mtheme}{The metropolis theme}
+    \item \href{https://katex.org}{KaTeX}
+  \end{enumerate}
+\end{frame}
+
 \begin{frame}[fragile]{Code}
   \begin{block}{Verbatim}
 \begin{verbatim}

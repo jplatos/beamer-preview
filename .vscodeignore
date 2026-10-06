@@ -27,3 +27,5 @@ examples/**
 .github/**
 .gitignore
 .vscode/**
+CLAUDE.md
+.nvmrc

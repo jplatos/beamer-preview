@@ -13,3 +13,4 @@ shots/
 *.toc
 *.vrb
 *.synctex.gz
+compare-out/

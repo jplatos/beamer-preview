@@ -132,7 +132,8 @@
     "test": "node test/smoke.js",
     "test:vscode": "node test/runTest.js",
     "screenshots": "node test/shoot.js",
-    "package": "vsce package"
+    "package": "vsce package",
+    "compare": "node test/compare.js"
   },
   "dependencies": {
     "@fontsource/fira-mono": "^5.3.0",

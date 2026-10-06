@@ -171,8 +171,10 @@ npm install
 npm test                 # smoke tests on examples/demo (no browser needed)
 npm run test:vscode      # integration test in a downloaded VS Code
 npm run export -- examples/demo/main.tex -o demo.html --document
-npm run screenshots -- demo.html shots/ all   # needs Chrome/Edge (or CHROME_PATH)
+npm run compare -- examples/demo/main.tex --snippets   # LaTeX vs preview side by side (Docker + Chrome)
 ```
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for prerequisites, debugging, adding commands and releasing.
 
 ## License
 
