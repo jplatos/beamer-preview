@@ -29,3 +29,4 @@ examples/**
 .vscode/**
 CLAUDE.md
 .nvmrc
+compare-out/**
