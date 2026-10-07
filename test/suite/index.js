@@ -36,5 +36,19 @@ exports.run = async () => {
   if (!process.env.BEAMER_PREVIEW_NO_SNIPPETS) {
     await vscode.commands.executeCommand('beamerPreview.checkSnippetEngine');
     console.log('ENGINE CHECK DONE');
+
+    // freshly compiled snippets arrive by message, not by re-render: their URIs must load (once got a 401 from double conversion)
+    const fail0 = (await stats()).pdfFail;
+    await vscode.commands.executeCommand('beamerPreview.clearSnippetCache');
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(path.resolve(__dirname, '../../examples/demo/sections/advanced.tex')));
+    let s3 = null;
+    for (let i = 0; i < 240; i++) {
+      await sleep(1000);
+      s3 = await stats();
+      if (s3 && s3.snippets > 0 && s3.pending === 0) break;
+    }
+    console.log('STATS3', JSON.stringify(s3));
+    assert.ok(s3.snippets > 0, 'compiled snippets rendered by pdf.js');
+    assert.strictEqual(s3.pdfFail, fail0, 'no PDF load failures after a fresh snippet compile');
   }
 };

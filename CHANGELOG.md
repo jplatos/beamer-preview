@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-10-07
+
+- Fix: freshly compiled TikZ/algorithm snippets failed to load in the preview with
+  `Unexpected server response (401)`. Their PDF URI was converted to a webview URI twice; cached snippets were not affected.
+- The VS Code integration test now compiles snippets from an empty cache and checks that every PDF loads.
+
 ## 0.2.0 — 2026-10-06
 
 Snippet engine (TikZ / pgfplots / algorithm2e):

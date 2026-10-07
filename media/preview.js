@@ -15,7 +15,7 @@
 
   // ---------------- pdf.js (lazy) ----------------
   let pdfjsPromise = null;
-  let pdfOk = 0;
+  let pdfOk = 0, pdfFail = 0;
   const pdfDocs = new Map();
   function pdfjs() {
     if (!pdfjsPromise) {
@@ -87,6 +87,7 @@
       pdfOk++;
     } catch (e) {
       if (e && /multiple render|cancel/i.test(e.message || '')) return;
+      pdfFail++;
       log(`PDF ${url}: ${e && e.message || e}`);
       cv.replaceWith(Object.assign(document.createElement('span'), { className: 'img-missing', textContent: 'PDF: ' + (e && e.message || e) }));
     }
@@ -396,6 +397,18 @@
   }
 
   // ---------------- messages ----------------
+  // counters for the integration test (test/suite), debounced
+  function postStats() {
+    clearTimeout(postStats._t);
+    postStats._t = setTimeout(() => vscode && vscode.postMessage({
+      type: 'stats', cards: deck.children.length, pdfOk, pdfFail, imgs: document.querySelectorAll('img.ig').length,
+      katex: document.querySelectorAll('.katex').length, missing: document.querySelectorAll('.img-missing').length,
+      pending: document.querySelectorAll('.snippet.pending').length, snippets: document.querySelectorAll('canvas.snippet-img[data-rendered]').length,
+      fonts: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family + ' ' + f.weight).filter((v, i, a) => a.indexOf(v) === i),
+      cur: document.querySelector('.card.cur') ? document.querySelector('.card.cur').dataset.i : null,
+    }), 2500);
+  }
+
   window.addEventListener('message', (ev) => {
     const m = ev.data;
     if (!m || !m.type) return;
@@ -404,12 +417,7 @@
       render(m.frames || []);
       showDiag(m.diagnostics);
       if (m.cursor) cursorTo(m.cursor.file, m.cursor.line);
-      setTimeout(() => vscode && vscode.postMessage({
-        type: 'stats', cards: deck.children.length, pdfOk, imgs: document.querySelectorAll('img.ig').length,
-        katex: document.querySelectorAll('.katex').length, missing: document.querySelectorAll('.img-missing').length,
-        fonts: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family + ' ' + f.weight).filter((v, i, a) => a.indexOf(v) === i),
-        cur: document.querySelector('.card.cur') ? document.querySelector('.card.cur').dataset.i : null,
-      }), 2500);
+      postStats();
     } else if (m.type === 'cursor') {
       cursorTo(m.file, m.line);
     } else if (m.type === 'snippet') {
@@ -419,7 +427,7 @@
           cv.className = 'pdfimg snippet-img';
           cv.dataset.src = m.uri; cv.dataset.page = '1'; cv.dataset.scale = '1'; cv.dataset.key = m.key;
           ph.replaceWith(cv);
-          renderPdfCanvas(cv);
+          renderPdfCanvas(cv).then(postStats);
         } else {
           ph.classList.remove('pending');
           ph.classList.add('failed');

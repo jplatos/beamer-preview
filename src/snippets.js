@@ -45,7 +45,7 @@ class SnippetCache {
    * @param {'docker'|'local'|'off'} o.engine
    * @param {string} [o.image]      docker image
    * @param {string} [o.latex]      latex binary for the local engine (default pdflatex)
-   * @param {(key:string, uri:string|null, err?:string)=>void} [o.onReady]
+   * @param {(key:string, uri:string|null, err?:string)=>void} [o.onReady]  uri comes from lookup's toUri (not a file path)
    * @param {(msg:string)=>void} [o.log]
    * @param {(state:'pulling'|'compiling'|'idle'|'down', msg?:string)=>void} [o.onStatus]
    */

@@ -40,8 +40,9 @@ class Preview {
         engine, image, latex,
         log: (msg) => this.out().appendLine(`[${new Date().toLocaleTimeString()}] ${msg}`),
         onStatus: (state, msg) => this.snippetStatus(state, msg),
+        // uri is already a webview URI (made by the toUri passed to lookup); converting again yields a 401
         onReady: (key, uri, err) => {
-          if (this.panel) this.panel.webview.postMessage({ type: 'snippet', key, uri: uri && this.webUri(uri), error: err });
+          if (this.panel) this.panel.webview.postMessage({ type: 'snippet', key, uri, error: err });
         },
       });
     }

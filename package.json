@@ -2,7 +2,7 @@
   "name": "beamer-preview",
   "displayName": "Beamer Live Preview",
   "description": "Marp-like live preview of LaTeX beamer (metropolis) slides without compiling: HTML/CSS rendering with KaTeX math, images, overlays and cursor sync.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "jplatos",
   "author": {
     "name": "Jan Platoš",
