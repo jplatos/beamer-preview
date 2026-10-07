@@ -55,6 +55,11 @@ Commands therefore don't need a declared signature table.
 - Each slide is identified by a hash of its HTML. Updates only replace slides that changed, so PDF canvases and the scroll position survive typing.
 - pdf.js is loaded lazily as an ES module. The worker is started from a blob URL, because webview resource URLs are cross-origin.
   Rendering is serialised per canvas.
+- Snippets: on a cache hit the renderer emits a `canvas.snippet-img` with the PDF's webview URI right away. On a miss it emits a
+  `.snippet.pending` placeholder (`data-key`). After the background compile, `onReady` posts a `snippet` message with the key and the
+  webview URI (already converted, never convert it again), and `preview.js` swaps the placeholder for a canvas, or marks it failed.
+- The webview reports `stats` (cards, `pdfOk`, `pdfFail`, pending/rendered snippets, fonts, …) after updates and snippet arrivals.
+  The integration test reads them through the hidden `beamerPreview._stats` command.
 
 ## Calibration
 

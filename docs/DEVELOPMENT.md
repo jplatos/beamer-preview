@@ -31,7 +31,7 @@ The extension logs to the **Beamer Preview** output channel. Webview errors are 
 | Command | What it does | Needs |
 |---|---|---|
 | `npm test` | Smoke and unit tests on `examples/demo` and in-memory documents | Node |
-| `npm run test:vscode` | Real VS Code (downloaded into `.vscode-test/`): opens the demo and the preview, checks that PDFs and fonts load, cursor sync and live edit, and runs the snippet engine check | Node, Docker (set `BEAMER_PREVIEW_NO_SNIPPETS=1` to skip it) |
+| `npm run test:vscode` | Real VS Code (downloaded into `.vscode-test/`): opens the demo and the preview, checks that PDFs and fonts load, cursor sync and live edit, runs the snippet engine check, then clears the snippet cache and checks that freshly compiled snippets load (`pdfFail` in the webview stats). Close all other VS Code windows first: VS Code refuses to run extension tests next to a running instance | Node, Docker (set `BEAMER_PREVIEW_NO_SNIPPETS=1` to skip the snippet parts) |
 | `npm run compare -- examples/demo/main.tex --snippets` | **Visual comparison with real LaTeX.** Compiles with xelatex, rasterises the pages, screenshots every preview slide (one per overlay step) and writes `compare-out/compare.html` side by side, reporting page-count mismatches | Docker, Chrome |
 | `npm run export -- file.tex -o out.html [--document] [--snippets]` | Static HTML of the preview | Node |
 | `npm run screenshots -- out.html shots/ [last\|first\|all]` | PNG per slide | Chrome |

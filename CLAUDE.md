@@ -61,6 +61,10 @@ per lecture. The goal is "very similar, not pixel-perfect": bullets, images, mat
 - `\pause` inside a nested group or environment must also hide what follows it (`afterPause`).
 - The snippet cache key is a hash of the full generated document (preamble included). Failures are cached as `*.failed`
   next to `*.failed.tex`/`.log`, and **Clear LaTeX Snippet Cache** removes them.
+- **Webview URIs are converted exactly once.** `SnippetCache.lookup` takes a `toUri` and returns webview URIs, and `onReady` receives
+  the same kind of URI. Wrapping one in `webUri()` again nests `vscode-resource` URLs, and pdf.js then fails with `Unexpected server response (401)`
+  (fixed in 0.2.1). Snippets have two paths, a cache hit in `lookup` and a fresh compile via the `snippet` message; test both.
+- `npm run test:vscode` cannot run while any VS Code window is open. Ask the author to run it if VS Code is in use.
 - Pushing: Claude has no GitHub credentials here. Commit and tag locally; the author pushes (TortoiseGit, "Include Tags").
 
 ## Ideas not done yet
