@@ -58,10 +58,21 @@ The first page-count mismatch usually points to an overlay or frame-splitting bu
 
 Unknown commands show up as "notes" in the preview toolbar and in the CLI output. That is the quickest way to find what a new deck needs.
 
+## Finishing a change
+
+Every finished change ends with:
+
+1. The checks above passing (at least `npm test`; `npm run compare` for rendering changes; `npm run test:vscode` for webview/extension changes).
+2. A commit on `main`.
+3. Updated docs for further development: `CLAUDE.md`, `docs/ARCHITECTURE.md`, this file and the README, as far as the change affects them.
+   Note user-visible changes in `CHANGELOG.md` under `## Unreleased`.
+
+A new version and tag are made only when a release is requested (see below).
+
 ## Release
 
 1. Bump `version` in `package.json` (`npm install --package-lock-only` updates the lock file).
-2. Add a section to `CHANGELOG.md`.
+2. Rename the `## Unreleased` section of `CHANGELOG.md` to `## X.Y.Z — date` (or add a section if there is none).
 3. Commit, create an annotated tag `vX.Y.Z`, and push the branch **and the tag**.
 4. GitHub Actions (`.github/workflows/ci.yml`) runs the tests and the VS Code integration test, packages the VSIX and publishes a GitHub Release with it.
 

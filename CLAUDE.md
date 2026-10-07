@@ -44,6 +44,18 @@ per lecture. The goal is "very similar, not pixel-perfect": bullets, images, mat
 4. Real decks: the author's two courses are *not* in the repo (private teaching material). Ask for the zips if needed.
    Typical checks are "all frames render with 0 notes" (`npm run export -- main.tex --document`) and "all snippets compile" (`--snippets`).
 
+## When a piece of work is done
+
+The author wants this done without being asked each time:
+
+1. **Commit** the finished, verified change on `main` with a message that explains why, not only what.
+2. **Update the docs** so the next session can continue without this one's context:
+   `CLAUDE.md` (layout, conventions, new pitfalls), `docs/ARCHITECTURE.md` (changed data flow or design),
+   `docs/DEVELOPMENT.md` (new commands, checks or prerequisites), and the README for user-visible features or settings.
+   Note unreleased user-visible changes in `CHANGELOG.md` under an `## Unreleased` heading.
+3. **Only when the author asks for a release**, follow "Release" in `docs/DEVELOPMENT.md`: bump the version, turn
+   `Unreleased` into the version section, commit, and create the annotated tag `vX.Y.Z`. Never push; the author does.
+
 ## Pitfalls found the hard way
 
 - **Windows Git Bash mangles backslashes** in heredocs, `sed` and inline `node -e`/`python -c`; `\\` collapses.
