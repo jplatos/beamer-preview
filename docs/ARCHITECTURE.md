@@ -58,6 +58,8 @@ Commands therefore don't need a declared signature table.
 - Snippets: on a cache hit the renderer emits a `canvas.snippet-img` with the PDF's webview URI right away. On a miss it emits a
   `.snippet.pending` placeholder (`data-key`). After the background compile, `onReady` posts a `snippet` message with the key and the
   webview URI (already converted, never convert it again), and `preview.js` swaps the placeholder for a canvas, or marks it failed.
+- Local resources: `webUri()` remembers URI → path. If pdf.js cannot fetch a URI (VS Code answers 401 for files outside
+  `localResourceRoots`), `preview.js` posts `fileData` and the extension replies with the bytes, which pdf.js opens as `data`.
 - The webview reports `stats` (cards, `pdfOk`, `pdfFail`, pending/rendered snippets, fonts, …) after updates and snippet arrivals.
   The integration test reads them through the hidden `beamerPreview._stats` command.
 

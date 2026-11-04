@@ -76,7 +76,11 @@ The author wants this done without being asked each time:
 - **Webview URIs are converted exactly once.** `SnippetCache.lookup` takes a `toUri` and returns webview URIs, and `onReady` receives
   the same kind of URI. Wrapping one in `webUri()` again nests `vscode-resource` URLs, and pdf.js then fails with `Unexpected server response (401)`
   (fixed in 0.2.1). Snippets have two paths, a cache hit in `lookup` and a fresh compile via the `snippet` message; test both.
-- `npm run test:vscode` cannot run while any VS Code window is open. Ask the author to run it if VS Code is in use.
+- **`context.globalStorageUri` is a `vscode-userdata:` URI** (VS Code 1.14x), not `file:`. Webview resource roots are matched by scheme,
+  so pass `vscode.Uri.file(globalStorageUri.fsPath)`. The integration test keeps its user-data dir in the OS temp folder:
+  inside the repo, the "4 levels up from the .tex" document root covered the cache and hid this bug.
+  As a safety net, `preview.js` asks the extension for the bytes (`fileData` message) when pdf.js gets a 401/404 for a URI made by `webUri()`.
+- `npm run test:vscode` runs fine next to an open VS Code, because it uses its own user-data dir in the temp folder (verified with VS Code 1.145).
 - Pushing: Claude has no GitHub credentials here. Commit and tag locally; the author pushes (TortoiseGit, "Include Tags").
 
 ## Ideas not done yet

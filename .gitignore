@@ -14,3 +14,5 @@ shots/
 *.vrb
 *.synctex.gz
 compare-out/
+# private test decks of the author (teaching material, not part of the repo)
+_source/

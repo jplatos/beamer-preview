@@ -34,11 +34,24 @@
   }
   function loadPdf(url) {
     if (!pdfDocs.has(url)) {
-      pdfDocs.set(url, pdfjs().then((lib) => lib.getDocument({
-        url, isEvalSupported: false, cMapUrl: cfg.cMapUrl, cMapPacked: true, standardFontDataUrl: cfg.standardFontDataUrl,
-      }).promise));
+      const opts = { isEvalSupported: false, cMapUrl: cfg.cMapUrl, cMapPacked: true, standardFontDataUrl: cfg.standardFontDataUrl };
+      pdfDocs.set(url, pdfjs().then((lib) => lib.getDocument(Object.assign({ url }, opts)).promise.catch((e) => {
+        // VS Code's resource loader can refuse a file (401 outside localResourceRoots, seen for the snippet cache):
+        // ask the extension for the bytes instead
+        if (!vscode || !/Unexpected server response|Failed to fetch|NetworkError|Missing PDF/i.test(e && e.message || '')) throw e;
+        return fileData(url, e.message).then((data) => lib.getDocument(Object.assign({ data }, opts)).promise);
+      })));
     }
     return pdfDocs.get(url);
+  }
+  const fileWaits = new Map();
+  let fileSeq = 0;
+  function fileData(url, reason) {
+    const id = ++fileSeq;
+    return new Promise((resolve, reject) => {
+      fileWaits.set(id, { resolve, reject });
+      vscode.postMessage({ type: 'fileData', id, url, reason });
+    });
   }
 
   // pdf.js refuses concurrent render() calls on one canvas: serialise per canvas,
@@ -418,6 +431,12 @@
       showDiag(m.diagnostics);
       if (m.cursor) cursorTo(m.cursor.file, m.cursor.line);
       postStats();
+    } else if (m.type === 'fileData') {
+      const w = fileWaits.get(m.id);
+      if (!w) return;
+      fileWaits.delete(m.id);
+      if (m.data) w.resolve(m.data instanceof Uint8Array ? m.data : new Uint8Array(m.data));
+      else w.reject(new Error(m.error || 'file not available'));
     } else if (m.type === 'cursor') {
       cursorTo(m.file, m.line);
     } else if (m.type === 'snippet') {

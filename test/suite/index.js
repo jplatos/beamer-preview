@@ -50,5 +50,20 @@ exports.run = async () => {
     console.log('STATS3', JSON.stringify(s3));
     assert.ok(s3.snippets > 0, 'compiled snippets rendered by pdf.js');
     assert.strictEqual(s3.pdfFail, fail0, 'no PDF load failures after a fresh snippet compile');
+
+    // cache hits take the other path (URI emitted by the renderer): reopen the preview and check they load too
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    await sleep(500);
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(path.resolve(__dirname, '../../examples/demo/sections/advanced.tex')));
+    await vscode.commands.executeCommand('beamerPreview.open');
+    let s4 = null;
+    for (let i = 0; i < 60; i++) {
+      await sleep(1000);
+      s4 = await stats();
+      if (s4 && s4.snippets > 0 && s4.pending === 0) break;
+    }
+    console.log('STATS4', JSON.stringify(s4));
+    assert.ok(s4.snippets > 0, 'cached snippets rendered by pdf.js');
+    assert.strictEqual(s4.pdfFail, 0, 'no PDF load failures for cached snippets');
   }
 };

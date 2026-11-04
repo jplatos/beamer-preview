@@ -1,6 +1,7 @@
 'use strict';
 const vscode = require('vscode');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const { Renderer } = require('./render');
 const { buildPage } = require('./page');
@@ -86,7 +87,27 @@ class Preview {
     else vscode.window.showErrorMessage(`Beamer: snippet engine failed — ${res.msg}`, 'Show log').then((a) => a && out.show(true));
   }
 
-  webUri(fsPath) { return this.panel.webview.asWebviewUri(vscode.Uri.file(fsPath)).toString(); }
+  /** Webview URI of a local file; remembered so the webview can ask for the bytes if loading the URI is refused. */
+  webUri(fsPath) {
+    const u = this.panel.webview.asWebviewUri(vscode.Uri.file(fsPath)).toString();
+    this.uriPaths.set(u, fsPath);
+    return u;
+  }
+
+  /** Fallback for PDFs the webview could not fetch (401/404 from VS Code's resource loader): send the bytes. */
+  sendFileData(m) {
+    const p = this.uriPaths.get(m.url);
+    const reply = (data, error) => this.panel && this.panel.webview.postMessage({ type: 'fileData', id: m.id, data, error });
+    if (!p) { reply(null, 'unknown resource'); return; }
+    fs.promises.readFile(p).then(
+      (buf) => reply(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).slice()),
+      (e) => reply(null, e.message),
+    );
+    if (!this.warnedFetch) {
+      this.warnedFetch = true;
+      this.out().appendLine(`webview could not load ${m.url} (${m.reason}); sending PDF data directly. Resource roots: ${this.panel.webview.options.localResourceRoots.map(String).join(', ')}`);
+    }
+  }
 
   open(editor) {
     const doc = editor ? editor.document : null;
@@ -98,8 +119,10 @@ class Preview {
         retainContextWhenHidden: true,
         localResourceRoots: this.resourceRoots(),
       });
+      this.uriPaths = new Map();
+      this.out().appendLine(`preview opened; globalStorageUri = ${this.context.globalStorageUri}`);
       this.panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'media', 'icon.svg');
-      this.panel.onDidDispose(() => { this.panel = null; this.ready = false; });
+      this.panel.onDidDispose(() => { this.panel = null; this.ready = false; this.lastStats = null; });
       this.panel.webview.onDidReceiveMessage((m) => this.onMessage(m));
       this.panel.webview.html = this.html();
     } else {
@@ -109,7 +132,13 @@ class Preview {
   }
 
   resourceRoots() {
-    const roots = [this.context.extensionUri, this.context.globalStorageUri];
+    // Roots must be file: URIs like the ones asWebviewUri(Uri.file(pdf)) requests; VS Code compares schemes, and
+    // globalStorageUri is not guaranteed to be file: (user-data URIs can carry vscode-userdata). In VS Code 1.144 every
+    // snippet PDF in the cache was refused with 401 while project images loaded; if the roots still refuse one,
+    // preview.js falls back to asking for the bytes (sendFileData).
+    const roots = [this.context.extensionUri, vscode.Uri.file(this.context.globalStorageUri.fsPath)];
+    // test hook: leave the snippet cache out of the roots to exercise the fileData fallback
+    if (process.env.BEAMER_PREVIEW_TEST_NO_STORAGE_ROOT) roots.pop();
     for (const f of vscode.workspace.workspaceFolders || []) roots.push(f.uri);
     if (this.focusFile) {
       // the document tree (images live next to the sources); go up to the drive/workspace root conservatively
@@ -141,6 +170,7 @@ class Preview {
 
   onMessage(m) {
     if (m.type === 'ready') { this.ready = true; this.schedule(0); return; }
+    if (m.type === 'fileData') { this.sendFileData(m); return; }
     if (m.type === 'log') { this.out().appendLine(m.msg); return; }
     if (m.type === 'stats') { this.lastStats = m; this.out().appendLine('stats ' + JSON.stringify(m)); return; }
     if (m.type === 'reveal' && m.file) {

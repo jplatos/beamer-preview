@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Fix: TikZ/algorithm snippets still failed with `Unexpected server response (401)` in VS Code 1.144+, cached and fresh alike.
+  `globalStorageUri` now has the `vscode-userdata` scheme, so the snippet cache was not an allowed webview resource root.
+  The root is now built as a `file:` URI. If VS Code still refuses a PDF, the preview asks the extension for the file's
+  bytes and renders them directly (logged once in the **Beamer Preview** output channel).
+
 ## 0.2.1 — 2026-10-07
 
 - Fix: freshly compiled TikZ/algorithm snippets failed to load in the preview with
