@@ -126,6 +126,19 @@
 .title-page .tp-date { font-size: 11pt; line-height: 13pt; margin-top: 3.1pt; }
 .title-page .tp-institute { font-size: 8pt; line-height: 10.7pt; margin-top: 9.3pt; }
 
+/* ---------- table of contents ----------
+   Like beamerbasetoc.sty: entries 21.1pt apart (xelatex), subsections indented 1.5em, shaded = fg!20!bg.
+   Before each section a fill (.tocfill), or a fixed 1.5em when other sections' subsections are hidden (.tocgap);
+   in a frame holding only the TOC the fills become flex fills (src/render.js), so sections spread over the frame. */
+/* Outline frame: the fills share a box 16pt shorter than other frames' (fitted to three xelatex TOC pages: every
+   line within ~1pt; beamer's space*{-.5em} is absorbed in this fit) */
+.content.tocframe { bottom: 37pt; }
+.slide .toc-s1, .slide .toc-s2 { margin-top: 5.46pt; }
+.slide .toc-s2 { padding-left: 16.5pt; }
+.slide .tocgap { display: block; height: 12pt; }
+.slide .tocfill { display: block; height: 6pt; }
+.slide .toc .shaded, .slide .shaded.toc-s1, .slide .shaded.toc-s2 { color: color-mix(in srgb, var(--fg) 20%, var(--bg)); }
+
 /* ---------- section page ---------- */
 .section-page .sp {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, calc(-50% - 9.5pt));

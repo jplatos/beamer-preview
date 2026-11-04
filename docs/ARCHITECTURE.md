@@ -40,7 +40,9 @@ Commands therefore don't need a declared signature table.
 1. **Preamble.** Collects `\title` & co., `\definecolor`, `\setbeamercolor`, `\metroset`, `\newcommand` (also forwarded to KaTeX
    as macros), packages and TikZ libraries (for snippets). `finishTheme()` then computes CSS variables using metropolis' formulas,
    for example `block title bg = normal text.bg!80!fg`.
-2. **Document walk.** Follows `\subimport`/`\input` recursively and records title, section and frame items.
+2. **Document walk.** Follows `\subimport`/`\input` recursively and records title, section and frame items, plus the
+   table-of-contents entries (`this.toc`) and each frame's section/subsection index. `\AtBeginSection` bodies are walked
+   at every `\section` instead of adding a section page.
    Numbering and the progress-bar fraction are computed afterwards, so they match beamer's `\inserttotalframenumber`.
 3. **Frames.** `convertStream` walks the tokens. Font and size switches wrap the rest of the group in `display: contents` spans.
    Environments and commands are handled in `environment()` and `command()`. Anything unknown is dropped, with a diagnostic.

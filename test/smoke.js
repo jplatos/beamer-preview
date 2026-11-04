@@ -190,6 +190,27 @@ test('top-level \\vfill becomes a flex fill next to the frame fills; nested ones
   assert.ok(/<div class="inner"><div class="fseg">a<\/div><div class="vf"><\/div><div class="fseg">b<\/div><div class="vf"><\/div><\/div>/.test(b), '[t]: no fill above');
   assert.ok(!c.includes('filled') && c.includes('<span class="vfill"></span>'));
 });
+test('\\tableofcontents lists sections and subsections; [currentsection] shades the others', () => {
+  const d = memDoc(String.raw`\begin{frame}{Outline}\tableofcontents\end{frame}
+\section[Short]{Intro}\subsection{Sub A}\begin{frame}{X}\tableofcontents[currentsection]\end{frame}
+\section{Methods}\subsection{Sub B}\begin{frame}{Y}\tableofcontents[hideallsubsections]\end{frame}`);
+  const [all, cur, hid] = d.frames.filter((x) => x.kind === 'frame').map((x) => x.html);
+  assert.ok(all.includes('tocframe') && /toc-s1">Intro[^]*toc-s2">Sub A[^]*toc-s1">Methods[^]*toc-s2">Sub B/.test(all), 'long titles, in order');
+  assert.ok(/class="toc-s1">Intro/.test(cur) && /toc-s1 shaded">Methods/.test(cur) && /toc-s2 shaded">Sub B/.test(cur));
+  assert.ok(!hid.includes('toc-s2') && hid.includes('tocgap'));
+  assert.ok(/<div class="vf"><\/div>/.test(all), 'section fills become flex fills in an Outline frame');
+});
+test('\\AtBeginSection frames replace the section page and know their section', () => {
+  const d = memDoc(String.raw`\section{One}\begin{frame}{A}a\end{frame}\section{Two}\begin{frame}{B}b\end{frame}`, {
+    'C:/mem/main.tex': String.raw`\documentclass{beamer}\usetheme{metropolis}
+\AtBeginSection[]{\begin{frame}{Outline}\tableofcontents[currentsection]\end{frame}}
+\begin{document}
+\section{One}\begin{frame}{A}a\end{frame}\section{Two}\begin{frame}{B}b\end{frame}
+\end{document}`,
+  });
+  assert.deepStrictEqual(d.frames.map((x) => x.kind + ':' + x.title), ['frame:Outline', 'frame:A', 'frame:Outline', 'frame:B']);
+  assert.ok(/toc-s1">One[^]*toc-s1 shaded">Two/.test(d.frames[0].html) && /toc-s1 shaded">One[^]*toc-s1">Two/.test(d.frames[2].html));
+});
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');
 process.exit(failed ? 1 : 0);

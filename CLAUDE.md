@@ -39,7 +39,7 @@ per lecture. The goal is "very similar, not pixel-perfect": bullets, images, mat
 ## Verify before claiming something works
 
 1. `npm test`: must stay green.
-2. `npm run compare -- examples/demo/main.tex --snippets`: page count must match (currently 22 = 22), and the pairs must look alike.
+2. `npm run compare -- examples/demo/main.tex --snippets`: page count must match (currently 23 = 23), and the pairs must look alike.
 3. `npm run test:vscode` for anything touching `extension.js`, `preview.js` or the CSP. Webview issues don't show up in Chrome.
 4. Real decks: the author's two courses are *not* in the repo (private teaching material). Ask for the zips if needed.
    Typical checks are "all frames render with 0 notes" (`npm run export -- main.tex --document`) and "all snippets compile" (`--snippets`).
@@ -92,6 +92,11 @@ The author wants this done without being asked each time:
 - **Top-level `\vfill` is split into flex fills** (`applyFills` in `render.js`): the body is cut at top-level markers only;
   the frame's own fills (above unless `[t]`, below unless `[b]`) are added, so `\null\vfill` puts content 2/3 down.
   A `\vfill` nested in another element (e.g. after `\large`) stays a fixed gap.
+- **TOC entries come from the collect pass** (`this.toc`, with `secNo`/`subNo` on every frame item for "current").
+  Beamer puts a `\vfill` before each section entry, so in a frame holding only the TOC (`tocframe`) the `.tocfill` markers
+  become real fills via `applyFills`; with hidden subsections it is a fixed 1.5em (`.tocgap`). The TOC uses the long
+  section titles. `\AtBeginSection` replaces the section page (beamer's hook replaces metropolis'), and its frames are
+  attributed to the `\section` line (`runHook`).
 - `npm run test:vscode` runs fine next to an open VS Code, because it uses its own user-data dir in the temp folder (verified with VS Code 1.145).
 - Pushing: Claude has no GitHub credentials here. Commit and tag locally; the author pushes (TortoiseGit, "Include Tags").
 
@@ -99,7 +104,7 @@ The author wants this done without being asked each time:
 
 - TikZ placeholder approximations without Docker (e.g. draw simple node graphs in SVG).
 - Other beamer themes (only metropolis styling exists; other themes render as metropolis).
-- `\cite`/bibliography rendering, `\tableofcontents`.
+- `\cite`/bibliography rendering.
 - Splitting one huge list item across `allowframebreaks` pages (TeX can break between its lines; the preview cannot).
 - `\pause` per `\foreach` iteration in TikZ (would need loop unrolling and `\ifthenelse` evaluation).
 - Publishing to the VS Code Marketplace (publisher id `jplatos` is set; needs a PAT and `vsce publish`).

@@ -250,7 +250,7 @@ const IGNORE = {
   setbeamersize: 1, usetikzlibrary: 1, tikzset: 1, pgfplotsset: 1, presetkeys: 3, graphicspath: 1,
   arrayrulecolor: 0, noindent: 0, indent: 0, protect: 0, relax: 0, centering: 0, nobreak: 0, sloppy: 0, fussy: 0,
   frenchspacing: 0, nointerlineskip: 0, strut: 0, null: 0, leavevmode: 0, ignorespaces: 0, unskip: 0, maketitle: 0,
-  tableofcontents: 0, AtBeginSection: 1, AtBeginSubsection: 1, appendix: 0, setlength: 2, addtolength: 2,
+  appendix: 0, setlength: 2, addtolength: 2,
   SetAlgoLined: 0, DontPrintSemicolon: 0, SetKwInOut: 2, SetKw: 2, SetKwBlock: 3, SetFuncSty: 1, SetDataSty: 1,
   metroset: 1, linespread: 1, selectfont: 0, fontsize: 2, usepackage: 1, captionsetup: 1, clearpage: 0,
   allowbreak: 0, hyphenation: 1, includeonlyframes: 1, beamertemplatenavigationsymbolsempty: 0,
@@ -288,6 +288,8 @@ class Renderer {
     this.lineCache = new Map();
     this.fileStack = [];
     this.fontSizePt = 11;
+    this.toc = [];       // {level: 1|2, toks, sec, sub} in document order, for \tableofcontents
+    this.tocDepth = 2;   // sections and subsections, like beamer
   }
 
   diag(msg, tok) {
@@ -328,7 +330,7 @@ class Renderer {
     if (bd >= 0) {
       const body = toks.slice(bd + 1);
       const ed = body.findIndex((t) => t.type === 'end' && t.name === 'document');
-      this.collect(new Stream(ed < 0 ? body : body.slice(0, ed)), this.rootDir, items, { section: '', subsection: '' });
+      this.collect(new Stream(ed < 0 ? body : body.slice(0, ed)), this.rootDir, items, { section: '', subsection: '', secNo: 0, subNo: 0 });
     }
 
     let list = items;
@@ -413,6 +415,16 @@ class Renderer {
           break;
         }
         case 'arrayrulecolor': { this.arrayRuleColor = texOf(readArg(s)).trim(); break; }
+        case 'AtBeginSection': case 'AtBeginSubsection': {
+          // replaces metropolis' own hook (the section page), like in beamer; [opt] is for starred sections
+          readOpt(s); this.atBegin = Object.assign(this.atBegin || {}, { [t.name]: readArg(s) });
+          break;
+        }
+        case 'setcounter': {
+          const c = texOf(readArg(s)).trim(); const v = parseInt(texOf(readArg(s)), 10);
+          if (c === 'tocdepth' && !isNaN(v)) this.tocDepth = v;
+          break;
+        }
         case 'lstset': { this.lstDefaults = Object.assign(this.lstDefaults || {}, parseKeyVals(texOf(readArg(s)))); break; }
         case 'graphicspath': { const a = texOf(readArg(s)); this.graphicsPath = (a.match(/\{([^}]*)\}/g) || []).map((x) => x.slice(1, -1)); break; }
         case 'input': case 'include': {
@@ -595,18 +607,27 @@ class Renderer {
           break;
         }
         case 'section': {
-          readStar(s); const short = readOpt(s); const a = readArg(s);
+          const star = readStar(s); const short = readOpt(s); const a = readArg(s);
           st.section = this.inlineText(a);
           st.subsection = '';
-          if (this.metro.sectionpage !== 'none') {
+          void short;
+          if (!star) { st.secNo++; st.subNo = 0; this.toc.push({ level: 1, toks: a, sec: st.secNo, sub: 0 }); }
+          const hook = !star && this.atBegin && this.atBegin.AtBeginSection;
+          if (hook && !hook.some((u) => u.type === 'cs' && u.name === 'sectionpage')) this.runHook(hook, t, dir, items, st);
+          else if (this.metro.sectionpage !== 'none') {
             items.push({ kind: 'section', section: st.section, file: t.file, line: this.lineOf(t), endLine: this.lineOf(t), tok: t, noNumber: true, title: st.section });
           }
           void short;
           break;
         }
         case 'subsection': case 'subsubsection': {
-          readStar(s); readOpt(s); const a = readArg(s);
-          if (t.name === 'subsection') st.subsection = this.inlineText(a);
+          const star = readStar(s); const short = readOpt(s); const a = readArg(s);
+          if (t.name === 'subsection') {
+            st.subsection = this.inlineText(a);
+            if (!star) { st.subNo++; this.toc.push({ level: 2, toks: a, sec: st.secNo, sub: st.subNo }); }
+            const hook = !star && this.atBegin && this.atBegin.AtBeginSubsection;
+            if (hook) this.runHook(hook, t, dir, items, st);
+          }
           break;
         }
         case 'subimport': case 'import': case 'subimport*': case 'inputfrom': case 'subinputfrom': {
@@ -624,6 +645,15 @@ class Renderer {
           break;
         }
         case 'appendix': this.metro.numbering = 'none'; break;
+        case 'AtBeginSection': case 'AtBeginSubsection': {
+          readOpt(s); this.atBegin = Object.assign(this.atBegin || {}, { [t.name]: readArg(s) });
+          break;
+        }
+        case 'setcounter': {
+          const c = texOf(readArg(s)).trim(); const v = parseInt(texOf(readArg(s)), 10);
+          if (c === 'tocdepth' && !isNaN(v)) this.tocDepth = v;
+          break;
+        }
         case 'setbeamertemplate': {
           const name = texOf(readArg(s)).trim(); const o = readOpt(s);
           if (name === 'frame footer') this.frameFooter = readArg(s); else if (!o) readArg(s);
@@ -644,6 +674,13 @@ class Renderer {
         default: break;
       }
     }
+  }
+
+  /** \AtBeginSection/\AtBeginSubsection body: its frames belong to the \section line (lecture mode, click-to-source). */
+  runHook(hook, t, dir, items, st) {
+    const n0 = items.length;
+    this.collect(new Stream(hook.slice()), dir, items, st);
+    for (const it of items.slice(n0)) Object.assign(it, { file: t.file, line: this.lineOf(t), endLine: this.lineOf(t) });
   }
 
   readFrame(s, t, dir, st, cmdForm) {
@@ -675,7 +712,7 @@ class Renderer {
       opts, body: bs.t.slice(bs.i), titleToks: title, subtitleToks: subtitle,
       noNumber: !!(opts.noframenumbering || opts.standout),
       numbering: this.metro.numbering, progressbar: this.metro.progressbar,
-      section: st.section, subsection: st.subsection, title: '',
+      section: st.section, subsection: st.subsection, secNo: st.secNo, subNo: st.subNo, title: '',
       footer: this.frameFooter,
     };
   }
@@ -734,6 +771,9 @@ ${I.institute ? `<div class="tp-institute">${h(I.institute)}</div>` : ''}
     const standout = !!o.standout;
     // allowframebreaks pages have their own vertical placement (v-break); preview.js splits them by measured height
     const breaks = !!o.allowframebreaks;
+    // an "Outline" frame (only a table of contents) sits higher than centred in beamer: v-toc
+    const tocOnly = /^\s*<div class="toc">(?:(?!<div class="toc">)[^])*<\/div>\s*$/.test(body.replace(/<span class="(par|vfill)"><\/span>/g, ''));
+    if (tocOnly) body = body.trim().replace(/^<div class="toc">/, '').replace(/<\/div>$/, '').replace(/<span class="tocfill"><\/span>/g, VFILL);
     const valign = o.t ? 'top' : o.b ? 'bottom' : breaks ? 'break' : 'center';
     const plain = !!o.plain;
     const showTitle = title && !plain && !standout;
@@ -752,7 +792,7 @@ ${I.institute ? `<div class="tp-institute">${h(I.institute)}</div>` : ''}
       ? `<div class="footnotes"><div class="fn-rule"></div>${ctx.footnotes.join('')}</div>` : '';
     const html = `<section class="slide frame${standout ? ' standout' : ''}${plain ? ' plain' : ''}${breaks ? ' breaks' : ''}" data-steps="${ctx.maxStep}">
 ${headPb}${showTitle ? `<div class="frametitle"><span>${title}</span></div>${pb}` : ''}
-<div class="content v-${valign}${showTitle ? '' : ' notitle'}${filled ? ' filled' : ''}"><div class="inner">${body}</div></div>
+<div class="content v-${valign}${showTitle ? '' : ' notitle'}${filled ? ' filled' : ''}${tocOnly ? ' tocframe' : ''}"><div class="inner">${body}</div></div>
 ${fns}
 ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><span class="fnum">${num}</span></div>` : ''}${footPb}
 </section>`;
@@ -1226,6 +1266,12 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
         // only meaningful in [allowframebreaks] frames; preview.js starts a continuation slide there
         readStar(s);
         return ctx.frame && ctx.frame.opts && ctx.frame.opts.allowframebreaks ? '<div class="fbreak"></div>' : '';
+      case 'tableofcontents': return this.tableOfContents(readOpt(s), ctx);
+      case 'setcounter': {
+        const c = texOf(readArg(s)).trim(); const v = parseInt(texOf(readArg(s)), 10);
+        if (c === 'tocdepth' && !isNaN(v)) ctx.tocDepth = v;
+        return '';
+      }
       case 'missingfigure': { readOpt(s); return `<span class="todo missingfigure">Missing figure: ${this.convert(readArg(s), ctx)}</span>`; }
       case 'tikzstyle': {
         // \tikzstyle{name}=[options]: keep for the LaTeX snippet preamble
@@ -1336,6 +1382,41 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
       return `<canvas class="pdfimg anim" data-src="${esc(frames[0])}" data-frames="${esc(JSON.stringify(frames))}" data-fps="${fps}" ${data} style="${style}"></canvas>`;
     }
     return `<img class="ig anim" src="${esc(frames[0])}" data-frames="${esc(JSON.stringify(frames))}" data-fps="${fps}" ${data} style="${style}">`;
+  }
+
+  /**
+   * beamer's \tableofcontents with its usual options. Entries come from the collect pass; "current" is the
+   * section/subsection the frame is in. Styles: show | shaded (fg!20!bg) | hide.
+   */
+  tableOfContents(optToks, ctx) {
+    const o = parseKeyVals(optToks ? texOf(optToks) : '');
+    let secStyle = ['show', 'show'];
+    let subStyle = ['show', 'show', 'show'];
+    if (o.currentsection) { secStyle = ['show', 'shaded']; subStyle = ['show', 'show', 'shaded']; }
+    if (o.currentsubsection) { secStyle = ['show', 'shaded']; subStyle = ['show', 'shaded', 'shaded']; }
+    if (typeof o.sectionstyle === 'string') o.sectionstyle.split('/').forEach((v, i) => { if (v.trim()) secStyle[i] = v.trim(); });
+    if (typeof o.subsectionstyle === 'string') o.subsectionstyle.split('/').forEach((v, i) => { if (v.trim()) subStyle[i] = v.trim(); });
+    if (secStyle.length < 2) secStyle[1] = secStyle[0];
+    const fr = ctx.frame || {};
+    const cur = fr.secNo || 0, curSub = fr.subNo || 0;
+    const depth = ctx.tocDepth !== undefined ? ctx.tocDepth : this.tocDepth;
+    const hideOther = !!(o.hideallsubsections || o.hideothersubsections || subStyle[2] === 'hide');
+    let html = '';
+    for (const e of this.toc) {
+      let style;
+      if (e.level === 1) {
+        if (depth < 1) continue;
+        style = !cur || e.sec === cur ? secStyle[0] : secStyle[1];
+      } else {
+        if (depth < 2 || o.hideallsubsections || (o.hideothersubsections && e.sec !== cur)) continue;
+        style = !cur ? 'show' : e.sec !== cur ? subStyle[2] : (!curSub || e.sub === curSub) ? subStyle[0] : subStyle[1];
+      }
+      if (style === 'hide') continue;
+      if (e.level === 1) html += hideOther ? '<span class="tocgap"></span>' : '<span class="tocfill"></span>';
+      html += `<div class="toc-s${e.level}${style === 'shaded' ? ' shaded' : ''}">${this.convert(e.toks, ctx)}</div>`;
+    }
+    // \vspace*{-.5em} before and \vfill after the list (beamerbasetoc.sty)
+    return `<div class="toc">${html}<span class="tocfill"></span></div>`;
   }
 
   /** Replace \input{file} in raw LaTeX by the file's text (root-relative like LaTeX, then the current folder). */

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `\tableofcontents` with `[currentsection]`, `[currentsubsection]`, `[hideallsubsections]`, `[hideothersubsections]`,
+  `sectionstyle=`/`subsectionstyle=` and `\setcounter{tocdepth}`; sections spread over the frame like beamer's.
+- `\AtBeginSection` / `\AtBeginSubsection` (e.g. an "Outline" frame per section) replace the section page, as in beamer.
+
 - Long frame titles wrap to two lines with a taller title bar, as in metropolis (they were cut off).
 - `\vfill` (and `\vspace{\fill}`) at the top level of a frame is a real fill: `\null\vfill` before a figure now
   places it like beamer does, instead of adding a fixed half-line gap.

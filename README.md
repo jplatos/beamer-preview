@@ -53,6 +53,7 @@ compiled once with real LaTeX in the background and cached.
   - Tables: `tabular` with `|`, `\hline`, booktabs rules, `\multicolumn`, `\multirow`, `\rowcolor`, `\cellcolor`.
   - Footnotes: `\footnote` (lettered inside columns) and `\blfootnote`.
   - Also `verbatim`, `\href`, `\url`, and user `\newcommand`/`\def`/`\newenvironment` (expanded).
+  - `\tableofcontents` (with `currentsection`, `hideallsubsections`, … and `tocdepth`), and `\AtBeginSection` outline frames.
 - **Math** with [KaTeX]. User macros and `\DeclareMathOperator` are passed through. Letters use the sans text font,
   like beamer's default math.
 - **Images.** PNG, JPG and SVG are shown directly, PDF figures through [pdf.js]. `\animategraphics` animates.
