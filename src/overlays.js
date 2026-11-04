@@ -88,4 +88,64 @@ function overlayVariant(src, k, tikz) {
   return out.replace(/\\pause\b(\[\d+\])?/g, '');
 }
 
-module.exports = { inSpec, overlaySteps, overlayVariant, resolveIncremental };
+/**
+ * \pause inside a snippet (TikZ): beamer uncovers everything after it one step later. Rewrite each \pause as
+ * \visible<k->{…rest of its group…}, numbering from the frame's pause counter `start`; a group that contained a
+ * pause also delays what follows it in the enclosing group. Pauses are counted where they are written, so a
+ * \pause in a \foreach body counts once, not once per iteration. Returns {src, pause} (the new counter).
+ */
+function pausesToOverlays(src, start) {
+  let pause = start;
+  // only wrap statement-like rests (a command), never the tail of an argument such as `{x};`
+  const wrappable = (s) => /^\s*\\/.test(s);
+  function span(from, to) {
+    let out = '';
+    let i = from;
+    while (i < to) {
+      const c = src[i];
+      if (c === '%') { const e = src.indexOf('\n', i); const j = e < 0 || e > to ? to : e; out += src.slice(i, j); i = j; continue; }
+      if (c === '\\') {
+        const m = /^\\(?:[a-zA-Z@]+|.)/.exec(src.slice(i, Math.min(to, i + 40)));
+        const cs = m ? m[0] : '\\';
+        if (cs === '\\pause') {
+          i += cs.length;
+          const o = /^\s*\[(\d+)\]/.exec(src.slice(i, to));
+          if (o) { i += o[0].length; pause = +o[1] - 1; } else pause++;
+          const k = pause + 1;
+          const rest = span(i, to);
+          out += rest.trim() ? `\\visible<${k}->{${rest}}` : rest;
+          return out;
+        }
+        out += cs; i += cs.length; continue;
+      }
+      if (c === '{') {
+        let depth = 0, j = i;
+        for (; j < to; j++) {
+          if (src[j] === '\\') { j++; continue; }
+          if (src[j] === '{') depth++;
+          else if (src[j] === '}' && --depth === 0) break;
+        }
+        const p0 = pause;
+        out += '{' + span(i + 1, Math.min(j, to)) + '}';
+        i = j + 1;
+        if (pause > p0 && i < to && wrappable(src.slice(i, to))) {
+          const k = pause + 1;
+          out += `\\visible<${k}->{${span(i, to)}}`;
+          return out;
+        }
+        continue;
+      }
+      out += c; i++;
+    }
+    return out;
+  }
+  if (!/\\pause\b/.test(src)) return { src, pause: start };
+  // only the environment body: \begin{…} and \end{…} must stay outside the wrapped groups
+  const b = /^\s*\\begin\{[^}]*\}/.exec(src);
+  const from = b ? b[0].length : 0;
+  const e = src.lastIndexOf('\\end{');
+  const to = e > from ? e : src.length;
+  return { src: src.slice(0, from) + span(from, to) + src.slice(to), pause };
+}
+
+module.exports = { inSpec, overlaySteps, overlayVariant, resolveIncremental, pausesToOverlays };

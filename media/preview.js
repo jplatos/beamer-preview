@@ -207,6 +207,82 @@
   }
   function defaultStep(n) { return state.overlays === 'first' ? 1 : n; }
 
+  // ---------------- allowframebreaks ----------------
+  // A [allowframebreaks] frame is rendered once; after layout its content is cut at top-level blocks and list items
+  // into pages that fit the text area (or at \framebreak markers). Page 1 stays in the card, the others become
+  // continuation cards (card._conts) placed right after it, like the extra PDF pages beamer makes.
+  const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii'];
+  function breakUnits(inner) {
+    const units = [];
+    for (const el of inner.children) {
+      if (el.matches('ul.list, ol.list, .list') && el.children.length > 1) units.push(...el.children);
+      else units.push(el);
+    }
+    return units.filter((u) => u.classList.contains('fbreak') || u.getBoundingClientRect().height > 0);
+  }
+  function splitBreaks(card) {
+    (card._conts || []).forEach((c) => { io.unobserve(c); c.remove(); });
+    card._conts = [];
+    const slide = card.querySelector('.slide.breaks');
+    if (!slide) return;
+    const content = slide.querySelector('.content');
+    const inner = content && content.querySelector('.inner');
+    if (!inner) return;
+    // undo an earlier split of this slide
+    slide.querySelectorAll('[data-bu]').forEach((u) => { u.style.display = ''; delete u.dataset.bu; });
+    slide.querySelectorAll('.list').forEach((l) => { l.style.display = ''; });
+    slide.querySelectorAll('.fcont').forEach((x) => x.remove());
+    // available height in the same (zoomed) coordinates as getBoundingClientRect
+    const cs = getComputedStyle(content);
+    const k = content.getBoundingClientRect().height / (content.offsetHeight || 1);
+    const avail = (content.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) * k;
+    const units = breakUnits(inner);
+    if (!units.length) return;
+    const pages = [[]];
+    let top = null;
+    for (const u of units) {
+      if (u.classList.contains('fbreak')) { if (pages[pages.length - 1].length) { pages.push([]); top = null; } continue; }
+      const r = u.getBoundingClientRect();
+      if (top === null) top = r.top;
+      if (r.bottom - top > avail + 0.5 && pages[pages.length - 1].length) { pages.push([]); top = r.top; }
+      pages[pages.length - 1].push(u);
+    }
+    if (pages.length < 2) return;
+    units.forEach((u, k) => { u.dataset.bu = k; });
+    const pageOf = new Map();
+    pages.forEach((p, k) => p.forEach((u) => pageOf.set(u.dataset.bu, k)));
+    const html = slide.outerHTML;
+    pages.forEach((p, k) => {
+      let target = slide;
+      if (k > 0) {
+        const c = document.createElement('div');
+        c.className = 'card cont';
+        for (const a of ['i', 'id', 'file', 'line', 'endLine']) c.dataset[a] = card.dataset[a];
+        c.dataset.steps = 1;
+        c.innerHTML = `<div class="scaler">${html}</div>`;
+        target = c.querySelector('.slide');
+        card._conts.push(c);
+        io.observe(c);
+      }
+      // hide every unit of the other pages; hide lists left without visible items
+      target.querySelectorAll('[data-bu]').forEach((u) => { u.style.display = pageOf.get(u.dataset.bu) === k ? '' : 'none'; });
+      target.querySelectorAll('.list').forEach((l) => {
+        if (l.querySelector(':scope > [data-bu]') && !l.querySelector(':scope > [data-bu]:not([style*="none"])')) l.style.display = 'none';
+      });
+      const t = target.querySelector('.frametitle > span');
+      if (t) t.insertAdjacentHTML('beforeend', ` <span class="fcont">${ROMAN[k] || k + 1}</span>`);
+      // every page is a frame of its own in beamer (later frames' numbers are not shifted here)
+      const num = target.querySelector('.fnum');
+      if (k > 0 && num && /^\d+$/.test(num.textContent)) num.textContent = String(+num.textContent + k);
+    });
+    let prev = card;
+    for (const c of card._conts) { prev.after(c); prev = c; }
+  }
+  function scheduleSplit(card) {
+    if (!card.querySelector('.slide.breaks')) return;
+    document.fonts.ready.then(() => requestAnimationFrame(() => { if (card.isConnected) { splitBreaks(card); postStats(); } }));
+  }
+
   // ---------------- building cards ----------------
   function buildCard(f, i, step) {
     const card = document.createElement('div');
@@ -228,6 +304,7 @@
     card.innerHTML = `<div class="scaler">${f.html}</div>${dots}`;
     setStep(card, step || defaultStep(f.steps));
     if (step) card.dataset.fixedStep = step;
+    scheduleSplit(card);
   }
 
   function cardsFor(f, i) {
@@ -242,6 +319,7 @@
     const want = frames.flatMap((f, i) => cardsFor(f, i));
     const existing = new Map();
     for (const c of Array.from(deck.children)) {
+      if (c.classList.contains('cont')) continue;
       const key = c.dataset.fixedStep ? `${c.dataset.id}#${c.dataset.fixedStep}` : c.dataset.id;
       if (!existing.has(key)) existing.set(key, c);
     }
@@ -255,10 +333,13 @@
       } else {
         card = buildCard(w.f, w.i, w.step);
       }
-      used.add(card);
-      const next = prev ? prev.nextSibling : deck.firstChild;
-      if (next !== card) deck.insertBefore(card, next);
-      prev = card;
+      // a split [allowframebreaks] frame brings its continuation cards along
+      for (const c of [card, ...(card._conts || [])]) {
+        used.add(c);
+        const next = prev ? prev.nextSibling : deck.firstChild;
+        if (next !== c) deck.insertBefore(c, next);
+        prev = c;
+      }
     }
     for (const c of Array.from(deck.children)) if (!used.has(c)) { io.unobserve(c); c.remove(); }
     relayout();

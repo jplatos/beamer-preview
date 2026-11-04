@@ -78,7 +78,7 @@ test('lecture mode shows only the included file plus title/section/closing frame
 });
 
 // ---- in-memory documents for specific constructs ----
-const { overlayVariant, overlaySteps, resolveIncremental } = require('../src/overlays');
+const { overlayVariant, overlaySteps, resolveIncremental, pausesToOverlays } = require('../src/overlays');
 const memDoc = (body, extra = {}) => {
   const files = Object.assign({
     'C:/mem/main.tex': String.raw`\documentclass{beamer}\usetheme{metropolis}
@@ -149,6 +149,37 @@ test('tikz with overlays compiles one snippet per step, without overlay commands
   const f = d.frames.find((x) => x.kind === 'frame');
   assert.strictEqual(f.steps, 3);
   assert.ok(f.html.includes('data-only="1"') && f.html.includes('data-only="3-"'));
+});
+test('allowframebreaks frames are marked for splitting, \\framebreak only counts there', () => {
+  const d = memDoc(String.raw`\begin{frame}[allowframebreaks]{R}\begin{enumerate}\item a\item b\end{enumerate}\framebreak x\end{frame}
+\begin{frame}{N}a\framebreak b\end{frame}`);
+  const [b, n] = d.frames.filter((x) => x.kind === 'frame');
+  assert.ok(/class="slide frame breaks"/.test(b.html) && b.html.includes('content v-break'));
+  assert.ok(b.html.includes('<div class="fbreak"></div>'));
+  assert.ok(!/breaks|fbreak/.test(n.html));
+  assert.deepStrictEqual(d.diagnostics.map((x) => x.msg), []);
+});
+test('\\pause inside tikzpicture becomes \\visible<k-> and delays the rest of the frame', () => {
+  const r = pausesToOverlays(String.raw`\begin{tikzpicture}\node(a){a};\pause\node{b};\foreach \x in {1,2}{\node{\x};\pause}\draw (a)--(b);\end{tikzpicture}`, 0);
+  assert.strictEqual(r.pause, 2);
+  assert.strictEqual(r.src, String.raw`\begin{tikzpicture}\node(a){a};\visible<2->{\node{b};\foreach \x in {1,2}{\node{\x};}\visible<3->{\draw (a)--(b);}}\end{tikzpicture}`);
+  const d = memDoc(String.raw`\begin{frame}{F}\begin{tikzpicture}\node{a};\pause\node{b};\end{tikzpicture}
+
+after\end{frame}`);
+  const fr = d.frames.find((x) => x.kind === 'frame');
+  assert.strictEqual(fr.steps, 2);
+  assert.strictEqual(d.snippets.length, 2);
+  assert.ok(/data-uncover="2-">[^]*after/.test(fr.html), 'text after the picture waits for step 2');
+});
+test('\\input inside tikzpicture is inlined (its pauses count, edits change the cache key)', () => {
+  const d = memDoc(String.raw`\begin{frame}{F}\begin{tikzpicture}\input{img/part.tex}\end{tikzpicture}\end{frame}`,
+    { 'C:/mem/img/part.tex': String.raw`\node{a}; % note
+\pause \node{b};` });
+  assert.strictEqual(d.frames.find((x) => x.kind === 'frame').steps, 2);
+  assert.ok(d.snippets.every((s) => !s.includes('\\input') && !s.includes('% note')));
+  // step 1 keeps b invisible (same bounding box), step 2 shows it
+  assert.ok(/opacity=0[^]*\\node\{b\}/.test(d.snippets[0]));
+  assert.ok(d.snippets[1].includes(String.raw`\node{b};`) && !d.snippets[1].includes('opacity=0'));
 });
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');

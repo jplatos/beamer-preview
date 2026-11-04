@@ -70,6 +70,14 @@
 .content.notitle { top: 8pt; }
 .content.v-top { justify-content: flex-start; padding-top: 6pt; }
 .content.v-bottom { justify-content: flex-end; }
+/* [allowframebreaks] pages: beamer vsplits at 0.95	extheight and spreads the rest with frametopskipautobreak/
+   framebottomskipautobreak. Box height and the 57/43 split are fitted to xelatex pages (glyph tops at 65.5/47.4pt
+   for 126/158pt of list); preview.js breaks pages when content exceeds this box. */
+.content.v-break { justify-content: flex-start; bottom: 37pt; }
+.content.v-break::before { content: ''; flex: 0.573 1 0; }
+.content.v-break::after { content: ''; flex: 0.427 1 0; }
+.content.v-break > .inner { flex: 0 0 auto; }
+.slide .fbreak { display: none; }
 .content > .inner { min-width: 0; }
 .slide.standout .content { left: 28.453pt; right: 28.453pt; top: 0; bottom: 0; text-align: center; }
 

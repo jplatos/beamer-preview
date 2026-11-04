@@ -39,7 +39,7 @@ per lecture. The goal is "very similar, not pixel-perfect": bullets, images, mat
 ## Verify before claiming something works
 
 1. `npm test`: must stay green.
-2. `npm run compare -- examples/demo/main.tex --snippets`: page count must match (currently 20 = 20), and the pairs must look alike.
+2. `npm run compare -- examples/demo/main.tex --snippets`: page count must match (currently 22 = 22), and the pairs must look alike.
 3. `npm run test:vscode` for anything touching `extension.js`, `preview.js` or the CSP. Webview issues don't show up in Chrome.
 4. Real decks: the author's two courses are *not* in the repo (private teaching material). Ask for the zips if needed.
    Typical checks are "all frames render with 0 notes" (`npm run export -- main.tex --document`) and "all snippets compile" (`--snippets`).
@@ -80,6 +80,12 @@ The author wants this done without being asked each time:
   so pass `vscode.Uri.file(globalStorageUri.fsPath)`. The integration test keeps its user-data dir in the OS temp folder:
   inside the repo, the "4 levels up from the .tex" document root covered the cache and hid this bug.
   As a safety net, `preview.js` asks the extension for the bytes (`fileData` message) when pdf.js gets a 401/404 for a URI made by `webUri()`.
+- **`allowframebreaks` is split in the webview, not the renderer** (`splitBreaks` in `preview.js`): page breaks need real
+  layout heights. The renderer only marks the slide (`.breaks`, `.content.v-break`, `.fbreak`). Continuation cards
+  (`.card.cont`, `card._conts`) are not frames: `render()` moves them along with their card and never matches them by id.
+  The `v-break` box (bottom 37pt, 57/43 free-space split) is fitted to xelatex pages; re-measure if you touch it.
+- TikZ `\pause` is rewritten to `\visible<k->{rest of group}` by `pausesToOverlays` before the per-step variants are built,
+  and the frame's pause counter continues after the picture. `\input` in raw environments is inlined first (`inlineInputs`).
 - `npm run test:vscode` runs fine next to an open VS Code, because it uses its own user-data dir in the temp folder (verified with VS Code 1.145).
 - Pushing: Claude has no GitHub credentials here. Commit and tag locally; the author pushes (TortoiseGit, "Include Tags").
 
@@ -87,5 +93,7 @@ The author wants this done without being asked each time:
 
 - TikZ placeholder approximations without Docker (e.g. draw simple node graphs in SVG).
 - Other beamer themes (only metropolis styling exists; other themes render as metropolis).
-- `\cite`/bibliography rendering, `\tableofcontents`, `\framebreak`/`allowframebreaks` splitting.
+- `\cite`/bibliography rendering, `\tableofcontents`.
+- Splitting one huge list item across `allowframebreaks` pages (TeX can break between its lines; the preview cannot).
+- `\pause` per `\foreach` iteration in TikZ (would need loop unrolling and `\ifthenelse` evaluation).
 - Publishing to the VS Code Marketplace (publisher id `jplatos` is set; needs a PAT and `vsce publish`).

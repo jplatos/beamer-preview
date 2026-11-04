@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `[allowframebreaks]` frames are split into continuation slides titled "i, ii, …" by measured height, at
+  top-level blocks and list items, or at `\framebreak`, with beamer's page fill and vertical placement.
+- `\pause` inside `tikzpicture` now creates overlay steps (and delays the rest of the frame), like beamer.
+- `\input` files inside `tikzpicture` are inlined: their overlays count, and edits to them recompile the picture
+  (before, a cached image stayed stale).
+
 - Fix: TikZ/algorithm snippets still failed with `Unexpected server response (401)` in VS Code 1.144+, cached and fresh alike.
   `globalStorageUri` now has the `vscode-userdata` scheme, so the snippet cache was not an allowed webview resource root.
   The root is now built as a `file:` URI. If VS Code still refuses a PDF, the preview asks the extension for the file's

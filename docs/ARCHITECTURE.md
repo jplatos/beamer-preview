@@ -44,12 +44,17 @@ Commands therefore don't need a declared signature table.
    Numbering and the progress-bar fraction are computed afterwards, so they match beamer's `\inserttotalframenumber`.
 3. **Frames.** `convertStream` walks the tokens. Font and size switches wrap the rest of the group in `display: contents` spans.
    Environments and commands are handled in `environment()` and `command()`. Anything unknown is dropped, with a diagnostic.
-4. **Overlays.** Elements get `data-only` / `data-uncover` / `data-notonly` / `data-invisible` attributes holding the overlay spec.
+4. **Snippet overlays.** Before a `tikzpicture` goes to the snippet cache, `\input` files are inlined and `\pause` is
+   rewritten to `\visible<k->{…}` (`overlays.js`), continuing the frame's pause counter; each step is one compile.
+5. **Overlays.** Elements get `data-only` / `data-uncover` / `data-notonly` / `data-invisible` attributes holding the overlay spec.
    `\pause` wraps the rest of the frame; a pause inside a list also covers what follows the list.
    The webview turns a step number into visibility classes, so all steps share one DOM.
 
 ## Webview
 
+- `[allowframebreaks]`: the renderer marks the slide (`.breaks`); after fonts load, `splitBreaks` measures top-level
+  blocks and list items, packs them into pages of the `.content.v-break` box (or cuts at `.fbreak`), keeps page 1 in
+  the card and adds continuation cards after it (`card._conts`, class `cont`) with "i, ii, …" in the title.
 - Slides are laid out at their real size in `pt`, so TeX lengths like `mm`, `em` and `0.6\textheight` map directly.
   They are then scaled with CSS `zoom`.
 - Each slide is identified by a hash of its HTML. Updates only replace slides that changed, so PDF canvases and the scroll position survive typing.

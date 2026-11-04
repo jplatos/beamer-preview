@@ -43,6 +43,8 @@ compiled once with real LaTeX in the background and cached.
   - `\definecolor`, `\colorlet`, and xcolor expressions such as `brand!50!black`, `\arrayrulecolor`, `\setbeamertemplate{frame footer}`
 - **Overlays.** `\pause`, `\only<>`, `\uncover<>`, `\visible<>`, `\invisible<>`, `\alt<>`, `\onslide`, `\item<2->`, `[<+->]`,
   `\includegraphics<2>`, `overprint`. Show the final step, the first step, or every step as its own slide (like the PDF).
+- **Long frames.** `[allowframebreaks]` frames are split into continuation slides ("Title i", "Title ii", …) where the
+  content overflows, at top-level blocks and list items, or at `\framebreak`.
 - **Content.**
   - Lists: itemize, enumerate, description (with `\setlength{\itemsep}` and size switches).
   - Layout: `columns`/`column`, `minipage`, `multicols`, `center`, `\resizebox`, `\scalebox`.
@@ -58,6 +60,8 @@ compiled once with real LaTeX in the background and cached.
   macros and `\tikzstyle`s, then cached by content hash.
   - Engines: Docker (`texlive/texlive`, default) or a local `pdflatex`.
   - Until a snippet is ready, or with the engine `off`, you see a placeholder (TikZ) or an HTML approximation (algorithm2e).
+  - Overlays inside a picture (`\pause`, `\visible<2>`, `\only`, …) compile one image per step; `\input` files in a
+    picture are inlined, so editing them recompiles it.
 - **Present mode.** Press `P`/`F5` or click ▶, then use the arrow keys or space to step through overlays. `Esc` leaves.
 - **1–4 column grid** for an overview of the deck.
 
@@ -157,6 +161,8 @@ Beamer overlays inside a picture (`\visible<2>{…}`, `\only`, `\uncover<+->`, `
   The toolbar shows a count of these notes; hover over it for details.
 - The theme is metropolis. Other beamer themes render with metropolis styling.
 - Fonts are Fira Sans and Fira Mono (bundled), as in metropolis with XeLaTeX or LuaLaTeX.
+- `\pause` inside a TikZ `\foreach` counts once, not once per iteration as in beamer.
+- Continuation slides of `[allowframebreaks]` frames do not shift the numbers of later frames.
 
 ## How it works
 

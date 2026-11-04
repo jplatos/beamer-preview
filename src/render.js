@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const katex = require('katex');
 const { tokenize, lineIndex, offsetToLine } = require('./tokenizer');
 const { ColorTable, toCss, mix } = require('./colors');
-const { overlaySteps, overlayVariant, resolveIncremental } = require('./overlays');
+const { overlaySteps, overlayVariant, resolveIncremental, pausesToOverlays } = require('./overlays');
 
 // ---------- geometry (16:9, 11pt, measured from beamer + metropolis) ----------
 const GEOM = {
@@ -224,8 +224,8 @@ const IGNORE = {
   frenchspacing: 0, nointerlineskip: 0, strut: 0, null: 0, leavevmode: 0, ignorespaces: 0, unskip: 0, maketitle: 0,
   tableofcontents: 0, AtBeginSection: 1, AtBeginSubsection: 1, appendix: 0, setlength: 2, addtolength: 2,
   SetAlgoLined: 0, DontPrintSemicolon: 0, SetKwInOut: 2, SetKw: 2, SetKwBlock: 3, SetFuncSty: 1, SetDataSty: 1,
-  metroset: 1, linespread: 1, selectfont: 0, fontsize: 2, usepackage: 1, captionsetup: 1, newpage: 0, clearpage: 0,
-  pagebreak: 0, framebreak: 0, allowbreak: 0, hyphenation: 1, includeonlyframes: 1, beamertemplatenavigationsymbolsempty: 0,
+  metroset: 1, linespread: 1, selectfont: 0, fontsize: 2, usepackage: 1, captionsetup: 1, clearpage: 0,
+  allowbreak: 0, hyphenation: 1, includeonlyframes: 1, beamertemplatenavigationsymbolsempty: 0,
   thispagestyle: 1, pagestyle: 1, footnotemark: 0, newline: 0, cline: 1, cmidrule: 1, toprule: 0, midrule: 0, bottomrule: 0,
   hline: 0, addlinespace: 0, specialrule: 3, rowcolors: 3, tabularnewline: 0, Hline: 0, hdashline: 0, vline: 0,
   newcounter: 1, inputencoding: 1, selectlanguage: 1, foreignlanguage: 1, resetcounteronoverlays: 1,
@@ -704,7 +704,9 @@ ${I.institute ? `<div class="tp-institute">${h(I.institute)}</div>` : ''}
     if (ctx.frametitle) title = ctx.frametitle;
     it.title = it.titleToks ? this.inlineText(it.titleToks) : (ctx.frametitleText || '');
     const standout = !!o.standout;
-    const valign = o.t ? 'top' : o.b ? 'bottom' : 'center';
+    // allowframebreaks pages have their own vertical placement (v-break); preview.js splits them by measured height
+    const breaks = !!o.allowframebreaks;
+    const valign = o.t ? 'top' : o.b ? 'bottom' : breaks ? 'break' : 'center';
     const plain = !!o.plain;
     const showTitle = title && !plain && !standout;
     const frac = Math.min(1, it.frameNumber / total);
@@ -717,7 +719,7 @@ ${I.institute ? `<div class="tp-institute">${h(I.institute)}</div>` : ''}
     const footer = it.footer && it.footer.length ? this.convert(it.footer, ctx) : '';
     const fns = ctx.footnotes.length
       ? `<div class="footnotes"><div class="fn-rule"></div>${ctx.footnotes.join('')}</div>` : '';
-    const html = `<section class="slide frame${standout ? ' standout' : ''}${plain ? ' plain' : ''}" data-steps="${ctx.maxStep}">
+    const html = `<section class="slide frame${standout ? ' standout' : ''}${plain ? ' plain' : ''}${breaks ? ' breaks' : ''}" data-steps="${ctx.maxStep}">
 ${headPb}${showTitle ? `<div class="frametitle"><span>${title}</span></div>${pb}` : ''}
 <div class="content v-${valign}${showTitle ? '' : ' notitle'}"><div class="inner">${body}</div></div>
 ${fns}
@@ -792,7 +794,14 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
         case 'math': flush(); out += this.math(t, ctx); continue;
         case 'verb': flush(); out += this.verbatim(t, ctx); continue;
         case 'verbinline': flush(); out += `<code class="tt">${esc(t.src)}</code>`; continue;
-        case 'raw': flush(); out += this.rawEnv(t, ctx); continue;
+        case 'raw': {
+          // a pause inside the picture also delays the rest of the frame
+          flush();
+          const p0 = ctx.pause;
+          out += this.rawEnv(t, ctx);
+          out += this.afterPause(p0, s, ctx);
+          continue;
+        }
         case 'begin': {
           flush();
           const p0 = ctx.pause;
@@ -1180,6 +1189,10 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
         const a = readArg(s);
         return kv.disable ? '' : `<span class="todo">${this.convert(a, ctx)}</span>`;
       }
+      case 'framebreak': case 'pagebreak': case 'newpage':
+        // only meaningful in [allowframebreaks] frames; preview.js starts a continuation slide there
+        readStar(s);
+        return ctx.frame && ctx.frame.opts && ctx.frame.opts.allowframebreaks ? '<div class="fbreak"></div>' : '';
       case 'missingfigure': { readOpt(s); return `<span class="todo missingfigure">Missing figure: ${this.convert(readArg(s), ctx)}</span>`; }
       case 'tikzstyle': {
         // \tikzstyle{name}=[options]: keep for the LaTeX snippet preamble
@@ -1292,6 +1305,22 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
     return `<img class="ig anim" src="${esc(frames[0])}" data-frames="${esc(JSON.stringify(frames))}" data-fps="${fps}" ${data} style="${style}">`;
   }
 
+  /** Replace \input{file} in raw LaTeX by the file's text (root-relative like LaTeX, then the current folder). */
+  inlineInputs(src, dir, depth = 0) {
+    if (depth > 4 || !/\\input\b/.test(src)) return src;
+    return src.replace(/\\input\s*\{([^}]+)\}/g, (m, f) => {
+      f = f.trim();
+      for (const base of [this.rootDir, dir]) {
+        if (!base) continue;
+        for (const cand of /\.\w+$/.test(f) ? [f] : [f + '.tex', f]) {
+          const txt = this.opts.readFile(path.resolve(base, cand));
+          if (txt != null) return this.inlineInputs(txt.replace(/(^|[^\\])%.*$/gm, '$1'), dir, depth + 1);
+        }
+      }
+      return m;
+    });
+  }
+
   // ---------- raw environments (tikz, algorithms) ----------
   rawEnv(t, ctx) {
     const label = t.env;
@@ -1303,8 +1332,16 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
         if (r && r.key) return placeholder(r.key);
         return null;
       };
+      // inline \input files: their overlays count, and the cache key changes when they are edited
+      t = Object.assign({}, t, { src: this.inlineInputs(t.src, ctx.dir) });
       // beamer overlays inside the snippet: compile one variant per step and switch between them
-      const inc = resolveIncremental(t.src, ctx.plus);
+      const pz = pausesToOverlays(t.src, ctx.pause);
+      if (pz.pause > ctx.pause) {
+        ctx.pause = pz.pause;
+        ctx.plus = Math.max(ctx.plus, ctx.pause + 1);
+        ctx.maxStep = Math.max(ctx.maxStep, ctx.pause + 1);
+      }
+      const inc = resolveIncremental(pz.src, ctx.plus);
       ctx.plus = inc.next;
       t = Object.assign({}, t, { src: inc.src });
       const n = overlaySteps(t.src);
