@@ -278,9 +278,24 @@
     let prev = card;
     for (const c of card._conts) { prev.after(c); prev = c; }
   }
+  // A frame title wider than the bar wraps to two lines in metropolis; the bar and the text area move down.
+  function fitTitle(card) {
+    const slide = card.querySelector('.slide');
+    const t = slide && slide.querySelector('.frametitle');
+    const span = t && t.firstElementChild;
+    if (!span) return;
+    slide.classList.remove('ftwrap');
+    const cs = getComputedStyle(t);
+    if (span.scrollWidth > t.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 0.5) slide.classList.add('ftwrap');
+  }
+  // layout passes that need real text metrics: after the fonts are in and the card is in the DOM
   function scheduleSplit(card) {
-    if (!card.querySelector('.slide.breaks')) return;
-    document.fonts.ready.then(() => requestAnimationFrame(() => { if (card.isConnected) { splitBreaks(card); postStats(); } }));
+    if (!card.querySelector('.frametitle') && !card.querySelector('.slide.breaks')) return;
+    document.fonts.ready.then(() => requestAnimationFrame(() => {
+      if (!card.isConnected) return;
+      fitTitle(card);
+      if (card.querySelector('.slide.breaks')) { splitBreaks(card); postStats(); }
+    }));
   }
 
   // ---------------- building cards ----------------

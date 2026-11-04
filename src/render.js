@@ -127,6 +127,34 @@ function readEnvBody(s, name) {
   return out;
 }
 
+const VOID_TAGS = new Set(['br', 'img', 'hr', 'input', 'wbr', 'col', 'meta', 'link', 'source']);
+const VFILL = '<span class="vfill"></span>';
+
+/**
+ * Frame body with top-level \vfill markers turned into flex fills. beamer's frame box has a fill above (unless
+ * [t]) and below (unless [b]) the content; a \vfill is another 1fill, so `\null\vfill` puts the content 2/3 down.
+ * Markers nested in other elements (e.g. after \large) stay fixed gaps. Returns null when there is nothing to do.
+ */
+function applyFills(html, valign) {
+  if (!html.includes(VFILL)) return null;
+  const cuts = [];
+  let depth = 0;
+  const re = /<(\/?)([a-zA-Z][\w-]*)[^>]*?(\/?)>/g;
+  for (let m; (m = re.exec(html));) {
+    if (depth === 0 && html.startsWith(VFILL, m.index)) { cuts.push(m.index); re.lastIndex = m.index + VFILL.length; continue; }
+    const tag = m[2].toLowerCase();
+    if (m[3] || VOID_TAGS.has(tag)) continue;
+    depth += m[1] ? -1 : 1;
+  }
+  if (!cuts.length) return null;
+  const fill = '<div class="vf"></div>';
+  const segs = [];
+  let at = 0;
+  for (const c of [...cuts, html.length]) { segs.push(html.slice(at, c)); at = c + VFILL.length; }
+  const body = segs.map((sg) => (/\S/.test(sg.replace(/<span class="par"><\/span>/g, '')) ? `<div class="fseg">${sg}</div>` : '')).join(fill);
+  return (valign === 'top' ? '' : fill) + body + (valign === 'bottom' ? '' : fill);
+}
+
 const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function parseKeyVals(str) {
@@ -717,11 +745,14 @@ ${I.institute ? `<div class="tp-institute">${h(I.institute)}</div>` : ''}
     const num = !standout && !plain && it.numbering !== 'none'
       ? (it.numbering === 'fraction' ? `${it.frameNumber}/${total}` : String(it.frameNumber)) : '';
     const footer = it.footer && it.footer.length ? this.convert(it.footer, ctx) : '';
+    // top-level \vfill: real fills, sharing the free space with the frame's own top/bottom fills
+    const filled = applyFills(body, valign);
+    if (filled) body = filled;
     const fns = ctx.footnotes.length
       ? `<div class="footnotes"><div class="fn-rule"></div>${ctx.footnotes.join('')}</div>` : '';
     const html = `<section class="slide frame${standout ? ' standout' : ''}${plain ? ' plain' : ''}${breaks ? ' breaks' : ''}" data-steps="${ctx.maxStep}">
 ${headPb}${showTitle ? `<div class="frametitle"><span>${title}</span></div>${pb}` : ''}
-<div class="content v-${valign}${showTitle ? '' : ' notitle'}"><div class="inner">${body}</div></div>
+<div class="content v-${valign}${showTitle ? '' : ' notitle'}${filled ? ' filled' : ''}"><div class="inner">${body}</div></div>
 ${fns}
 ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><span class="fnum">${num}</span></div>` : ''}${footPb}
 </section>`;
@@ -1045,7 +1076,9 @@ ${(num || footer) ? `<div class="footline"><span class="ffoot">${footer}</span><
       }
       case 'vspace': case 'vspace*': {
         readStar(s);
-        const l = cssLength(texOf(readArg(s)), 'v');
+        const raw = texOf(readArg(s));
+        if (/\\(v?fill|stretch)\b/.test(raw)) return '<span class="vfill"></span>';
+        const l = cssLength(raw, 'v');
         return l ? `<span class="vsp" style="height:${l}"></span>` : '';
       }
       case 'hspace': case 'hspace*': {

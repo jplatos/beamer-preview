@@ -181,6 +181,15 @@ test('\\input inside tikzpicture is inlined (its pauses count, edits change the 
   assert.ok(/opacity=0[^]*\\node\{b\}/.test(d.snippets[0]));
   assert.ok(d.snippets[1].includes(String.raw`\node{b};`) && !d.snippets[1].includes('opacity=0'));
 });
+test('top-level \\vfill becomes a flex fill next to the frame fills; nested ones stay gaps', () => {
+  const d = memDoc(String.raw`\begin{frame}{A}\null\vfill text\end{frame}
+\begin{frame}[t]{B}a\vspace{\fill}b\end{frame}
+\begin{frame}{C}w {\large x\vfill y}\end{frame}`);
+  const [a, b, c] = d.frames.filter((x) => x.kind === 'frame').map((x) => x.html);
+  assert.ok(a.includes('content v-center filled') && /<div class="inner"><div class="vf"><\/div><div class="vf"><\/div><div class="fseg">\s*text\s*<\/div><div class="vf"><\/div><\/div>/.test(a));
+  assert.ok(/<div class="inner"><div class="fseg">a<\/div><div class="vf"><\/div><div class="fseg">b<\/div><div class="vf"><\/div><\/div>/.test(b), '[t]: no fill above');
+  assert.ok(!c.includes('filled') && c.includes('<span class="vfill"></span>'));
+});
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');
 process.exit(failed ? 1 : 0);

@@ -86,6 +86,12 @@ The author wants this done without being asked each time:
   The `v-break` box (bottom 37pt, 57/43 free-space split) is fitted to xelatex pages; re-measure if you touch it.
 - TikZ `\pause` is rewritten to `\visible<k->{rest of group}` by `pausesToOverlays` before the per-step variants are built,
   and the frame's pause counter continues after the picture. `\input` in raw environments is inlined first (`inlineInputs`).
+- **Frame titles are measured in the webview** (`fitTitle` in `preview.js`): if the title is wider than the bar the slide
+  gets `ftwrap` (bar 45.1pt, content moved down 16.5pt, measured from xelatex). Borderline titles can still differ from
+  LaTeX by a fraction of a point of glyph width (one page in the ML deck).
+- **Top-level `\vfill` is split into flex fills** (`applyFills` in `render.js`): the body is cut at top-level markers only;
+  the frame's own fills (above unless `[t]`, below unless `[b]`) are added, so `\null\vfill` puts content 2/3 down.
+  A `\vfill` nested in another element (e.g. after `\large`) stays a fixed gap.
 - `npm run test:vscode` runs fine next to an open VS Code, because it uses its own user-data dir in the temp folder (verified with VS Code 1.145).
 - Pushing: Claude has no GitHub credentials here. Commit and tag locally; the author pushes (TortoiseGit, "Include Tags").
 

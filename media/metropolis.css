@@ -40,6 +40,10 @@
 .slide .hfill { display: inline-block; width: 1em; }
 .slide .hfill.hrule { border-bottom: 0.4pt solid currentColor; width: 4em; }
 .slide .vfill { display: block; height: 0.5em; }
+/* frames with top-level \vfill: the inner box spans the text area and fills share the free space (src/render.js applyFills) */
+.content.filled > .inner { flex: 1 1 auto; display: flex; flex-direction: column; }
+.content.filled > .inner > .vf { flex: 1 1 0; }
+.content.filled > .inner > .fseg { flex: 0 0 auto; }
 .slide .centering, .slide .center { text-align: center; }
 .slide .center { margin: 3pt 0; }
 .slide .flushleft { text-align: left; }
@@ -47,6 +51,10 @@
 .slide .quote { margin: 3pt 2.5em; }
 
 /* ---------- frame chrome ---------- */
+/* two-line frame titles (preview.js fitTitle): the bar measured 45.1pt in xelatex, i.e. 16.5pt more */
+.slide.ftwrap .frametitle { height: 45.1pt; white-space: normal; hyphens: auto; line-height: 14pt; }
+.slide.ftwrap .pb:not(.pb-head):not(.pb-foot) { top: 45.1pt; }
+.slide.ftwrap .content { top: 45.5pt; }
 .frametitle {
   position: absolute; left: 0; right: 0; top: 0;
   height: 28.6pt;

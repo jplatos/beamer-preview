@@ -52,6 +52,8 @@ Commands therefore don't need a declared signature table.
 
 ## Webview
 
+- Measured layout passes run per card after fonts load (`scheduleSplit`): `fitTitle` (two-line frame titles) first,
+  then `splitBreaks`, because a taller title shrinks the text area.
 - `[allowframebreaks]`: the renderer marks the slide (`.breaks`); after fonts load, `splitBreaks` measures top-level
   blocks and list items, packs them into pages of the `.content.v-break` box (or cuts at `.fbreak`), keeps page 1 in
   the card and adds continuation cards after it (`card._conts`, class `cont`) with "i, ii, …" in the title.

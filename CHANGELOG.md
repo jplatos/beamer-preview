@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Long frame titles wrap to two lines with a taller title bar, as in metropolis (they were cut off).
+- `\vfill` (and `\vspace{\fill}`) at the top level of a frame is a real fill: `\null\vfill` before a figure now
+  places it like beamer does, instead of adding a fixed half-line gap.
+
 - `[allowframebreaks]` frames are split into continuation slides titled "i, ii, …" by measured height, at
   top-level blocks and list items, or at `\framebreak`, with beamer's page fill and vertical placement.
 - `\pause` inside `tikzpicture` now creates overlay steps (and delays the rest of the frame), like beamer.
