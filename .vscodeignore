@@ -30,3 +30,8 @@ examples/**
 CLAUDE.md
 .nvmrc
 compare-out/**
+# local, never shipped: private test decks of the author, notes, exports
+_source/**
+error.txt
+*.preview.html
+shots/**
