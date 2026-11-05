@@ -1,28 +1,39 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-11-05
 
-- Fix: `\texttt` showed as a dark box with padding in VS Code (the webview's default `code` style leaked into the
-  slides). It now looks like in the PDF.
+Fixes:
 
+- TikZ/algorithm snippets failed with `Unexpected server response (401)` in VS Code 1.144+, cached and fresh alike:
+  `globalStorageUri` now has the `vscode-userdata` scheme, so the snippet cache was not an allowed webview resource root.
+  The root is now a `file:` URI. If VS Code still refuses a PDF, the preview asks the extension for the file's bytes and
+  renders them directly (logged once in the **Beamer Preview** output channel).
+- `\texttt` showed as a dark box with padding in VS Code (the webview's default `code` style leaked into the slides).
+  It now looks like in the PDF.
+
+Frames and layout:
+
+- `[allowframebreaks]` frames are split into continuation slides titled "i, ii, …" by measured height, at top-level
+  blocks and list items, or at `\framebreak`, with beamer's page fill and vertical placement.
+- Long frame titles wrap to two lines with a taller title bar, as in metropolis (they were cut off).
+- `\vfill` (and `\vspace{\fill}`) at the top level of a frame is a real fill: `\null\vfill` before a figure now places
+  it like beamer does, instead of adding a fixed half-line gap.
 - `\tableofcontents` with `[currentsection]`, `[currentsubsection]`, `[hideallsubsections]`, `[hideothersubsections]`,
   `sectionstyle=`/`subsectionstyle=` and `\setcounter{tocdepth}`; sections spread over the frame like beamer's.
 - `\AtBeginSection` / `\AtBeginSubsection` (e.g. an "Outline" frame per section) replace the section page, as in beamer.
 
-- Long frame titles wrap to two lines with a taller title bar, as in metropolis (they were cut off).
-- `\vfill` (and `\vspace{\fill}`) at the top level of a frame is a real fill: `\null\vfill` before a figure now
-  places it like beamer does, instead of adding a fixed half-line gap.
+TikZ snippets:
 
-- `[allowframebreaks]` frames are split into continuation slides titled "i, ii, …" by measured height, at
-  top-level blocks and list items, or at `\framebreak`, with beamer's page fill and vertical placement.
-- `\pause` inside `tikzpicture` now creates overlay steps (and delays the rest of the frame), like beamer.
+- `\pause` inside `tikzpicture` creates overlay steps (and delays the rest of the frame), like beamer.
 - `\input` files inside `tikzpicture` are inlined: their overlays count, and edits to them recompile the picture
   (before, a cached image stayed stale).
 
-- Fix: TikZ/algorithm snippets still failed with `Unexpected server response (401)` in VS Code 1.144+, cached and fresh alike.
-  `globalStorageUri` now has the `vscode-userdata` scheme, so the snippet cache was not an allowed webview resource root.
-  The root is now built as a `file:` URI. If VS Code still refuses a PDF, the preview asks the extension for the file's
-  bytes and renders them directly (logged once in the **Beamer Preview** output channel).
+Development:
+
+- `npm run test:vscode` tests the newest stable VS Code (`VSCODE_VERSION` for another) with its user data outside the
+  repo, checks cached and freshly compiled snippets and that VS Code's default webview styles do not leak into slides.
+- The demo deck has an outline and an `allowframebreaks` frame (23 pages).
+- Local VSIX builds no longer pick up `_source/` (private test decks) or `error.txt`.
 
 ## 0.2.1 — 2026-10-07
 
