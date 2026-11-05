@@ -97,6 +97,11 @@ The author wants this done without being asked each time:
   become real fills via `applyFills`; with hidden subsections it is a fixed 1.5em (`.tocgap`). The TOC uses the long
   section titles. `\AtBeginSection` replaces the section page (beamer's hook replaces metropolis'), and its frames are
   attributed to the `\section` line (`runHook`).
+- **VS Code injects default styles into every webview** (`@layer vscode-default` in VS Code's webview `index.html`):
+  `code` gets a dark background, padding and the editor's colour, `a` the link colour, `img` `max-height:100%`.
+  None of it exists in Chrome, so `npm run compare` and the CLI export cannot show it. `metropolis.css` resets these
+  (unlayered rules win over the layer), and the webview `stats` report `leaks` that `test:vscode` asserts on.
+  Any new element type the renderer emits must be checked against that list.
 - `npm run test:vscode` runs fine next to an open VS Code, because it uses its own user-data dir in the temp folder (verified with VS Code 1.145).
 - Pushing: Claude has no GitHub credentials here. Commit and tag locally; the author pushes (TortoiseGit, "Include Tags").
 

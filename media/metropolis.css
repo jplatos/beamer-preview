@@ -19,6 +19,11 @@
 .slide b, .slide strong { font-weight: 400; }
 .slide em, .slide i { font-style: italic; }
 .slide .tt, .slide code, .slide pre { font-family: var(--mono); font-weight: 400; }
+/* VS Code injects default webview styles (@layer vscode-default): code gets the editor's preformat colour, a dark
+   background, padding and rounded corners, images max-height:100%. Plain browsers (export, compare) have none of
+   this, so reset them here; unlayered rules always win over the layer. */
+.slide code { color: inherit; background: none; padding: 0; border-radius: 0; }
+.slide img { max-height: none; }
 .slide .sc { font-variant: small-caps; }
 .slide a { color: inherit; text-decoration: none; }
 .slide .url { font-family: var(--mono); font-size: 0.95em; }

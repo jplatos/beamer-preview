@@ -515,6 +515,13 @@
       pending: document.querySelectorAll('.snippet.pending').length, snippets: document.querySelectorAll('canvas.snippet-img[data-rendered]').length,
       fonts: [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family + ' ' + f.weight).filter((v, i, a) => a.indexOf(v) === i),
       cur: document.querySelector('.card.cur') ? document.querySelector('.card.cur').dataset.i : null,
+      // VS Code's default webview styles must not leak into slides (\texttt once got a dark box)
+      leaks: ['.slide code.tt', '.slide a'].map((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const cs = getComputedStyle(el), ps = getComputedStyle(el.parentElement);
+        return { sel, bg: cs.backgroundColor, pad: cs.paddingLeft, sameColor: cs.color === ps.color };
+      }).filter(Boolean),
     }), 2500);
   }
 

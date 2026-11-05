@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix: `\texttt` showed as a dark box with padding in VS Code (the webview's default `code` style leaked into the
+  slides). It now looks like in the PDF.
+
 - `\tableofcontents` with `[currentsection]`, `[currentsubsection]`, `[hideallsubsections]`, `[hideothersubsections]`,
   `sectionstyle=`/`subsectionstyle=` and `\setcounter{tocdepth}`; sections spread over the frame like beamer's.
 - `\AtBeginSection` / `\AtBeginSubsection` (e.g. an "Outline" frame per section) replace the section page, as in beamer.

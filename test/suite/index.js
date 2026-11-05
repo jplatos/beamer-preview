@@ -20,6 +20,13 @@ exports.run = async () => {
   assert.strictEqual(s.missing, 0, 'no missing images');
   assert.ok(s.pdfOk >= 1, 'PDF figure rendered by pdf.js inside the webview');
   assert.ok(s.fonts.some((f) => f.startsWith('Fira Sans')), 'Fira Sans loaded');
+  // VS Code's injected default styles (code background/colour/padding, link colour) must not reach the slides
+  assert.ok(s.leaks.some((l) => l.sel === '.slide code.tt'), 'demo has \\texttt to check');
+  for (const l of s.leaks) {
+    assert.ok(/^(transparent|rgba\(0, 0, 0, 0\))$/.test(l.bg), `${l.sel}: no background (got ${l.bg})`);
+    assert.strictEqual(l.pad, '0px', `${l.sel}: no padding`);
+    assert.ok(l.sameColor, `${l.sel}: colour of the surrounding text`);
+  }
 
   // cursor sync: move into the "Blocks" frame (last frame of basics.tex)
   const line = doc.getText().split('\n').findIndex((l) => l.includes('{Blocks}'));
